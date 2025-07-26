@@ -37,18 +37,16 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter-test:3.0.4'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-
-
 // UserAgent Parser 라이브러리
     implementation 'com.github.ua-parser:uap-java:1.6.1'
 // Log4jdbc-Log4j2 라이브러리
     implementation 'org.bgee.log4jdbc-log4j2:log4jdbc-log4j2-jdbc4.1:1.16'
 // 썸네일 이미지 생성 라이브러리
     implementation 'net.coobird:thumbnailator:0.4.20'
-// [신규] Lombok이 단위 테스트에서도 작동하도록 설정
+// Lombok이 단위 테스트에서도 작동하도록 설정
     testAnnotationProcessor 'org.projectlombok:lombok'
     testCompileOnly 'org.projectlombok:lombok'
-// [신규] Spring Session JDBC를 사용하여 세션 관리
+// Spring Session JDBC를 사용하여 세션 관리
     implementation 'org.springframework.session:spring-session-jdbc'
 
     implementation 'org.springframework.boot:spring-boot-starter-security'
