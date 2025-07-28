@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 public class MemberResponse {
     private int id;
     private String userId;
+    private String nickname;
     private String accessToken;
     private String refreshToken;
 }

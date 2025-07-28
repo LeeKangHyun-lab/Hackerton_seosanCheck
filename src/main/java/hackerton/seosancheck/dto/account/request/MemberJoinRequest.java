@@ -6,4 +6,5 @@ import lombok.Data;
 public class MemberJoinRequest {
     private String userId;
     private String userPw;
+    private String nickname;
 }
