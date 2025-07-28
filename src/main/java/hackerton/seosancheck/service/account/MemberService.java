@@ -5,8 +5,15 @@ import hackerton.seosancheck.dto.account.request.MemberLoginRequest;
 import hackerton.seosancheck.entity.account.Member;
 
 public interface MemberService {
-    Member join(MemberJoinRequest request) throws Exception;
-    Member login(MemberLoginRequest request) throws Exception;
+
+    Member join(MemberJoinRequest request);
+
+    Member login(MemberLoginRequest request);
+
     void logout(int memberId);
+
     void saveRefreshToken(int memberId, String token, long expiry);
+
+    void softDeleteAccount(int memberId);
+
 }

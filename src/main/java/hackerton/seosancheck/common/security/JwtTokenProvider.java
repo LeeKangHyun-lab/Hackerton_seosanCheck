@@ -2,24 +2,39 @@ package hackerton.seosancheck.common.security;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
 
 @Component
 public class JwtTokenProvider {
 
-    private final Key key = Keys.secretKeyFor(SignatureAlgorithm.HS256);
-    private final long ACCESS_TOKEN_EXPIRY = 1000L * 60 * 15; // 15분
-    private final long REFRESH_TOKEN_EXPIRY = 1000L * 60 * 60 * 24 * 14; // 14일
+    @Value("${jwt.secret}")
+    private String secretKey;
+
+    @Value("${jwt.access-expiry}")
+    private long accessTokenExpiry;
+
+    @Value("${jwt.refresh-expiry}")
+    private long refreshTokenExpiry;
+
+    private Key key;
+
+    @PostConstruct
+    public void init() {
+        this.key = Keys.hmacShaKeyFor(secretKey.getBytes(StandardCharsets.UTF_8));
+    }
 
     public String generateAccessToken(String userId) {
         return Jwts.builder()
                 .setSubject(userId)
                 .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + ACCESS_TOKEN_EXPIRY))
-                .signWith(key)
+                .setExpiration(new Date(System.currentTimeMillis() + accessTokenExpiry))
+                .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
     }
 
@@ -27,8 +42,8 @@ public class JwtTokenProvider {
         return Jwts.builder()
                 .setSubject(userId)
                 .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + REFRESH_TOKEN_EXPIRY))
-                .signWith(key)
+                .setExpiration(new Date(System.currentTimeMillis() + refreshTokenExpiry))
+                .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
     }
 
@@ -51,6 +66,6 @@ public class JwtTokenProvider {
     }
 
     public long getRefreshTokenExpiry() {
-        return REFRESH_TOKEN_EXPIRY;
+        return refreshTokenExpiry;
     }
 }
