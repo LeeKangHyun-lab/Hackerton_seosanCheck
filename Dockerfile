@@ -1,3 +1,4 @@
+
 # 1단계: 빌드
 FROM openjdk:21-jdk-slim AS builder
 WORKDIR /app
@@ -10,3 +11,4 @@ FROM openjdk:21-jdk-slim
 WORKDIR /app
 COPY --from=builder /app/build/libs/*.jar app.jar
 CMD ["java", "-jar", "app.jar"]
+
