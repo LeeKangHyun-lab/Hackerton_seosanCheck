@@ -47,7 +47,7 @@ public class AccountController {
                 newMember.getUserId(),
                 newMember.getNickname(),
                 accessToken,
-                refreshToken
+                null
         ));
     }
 
@@ -71,7 +71,7 @@ public class AccountController {
         memberService.saveRefreshToken(loginMember.getId(), refreshToken, jwtTokenProvider.getRefreshTokenExpiry());
         addRefreshTokenCookie(response, refreshToken);
 
-        return ResponseEntity.ok(new TokenResponse(accessToken, refreshToken));
+        return ResponseEntity.ok(new TokenResponse(accessToken, loginMember.getNickname()));
     }
 
 
@@ -98,7 +98,12 @@ public class AccountController {
         memberService.saveRefreshToken(dbToken.getMemberId(), newRefreshToken, jwtTokenProvider.getRefreshTokenExpiry());
         addRefreshTokenCookie(response, newRefreshToken);
 
-        return ResponseEntity.ok(new TokenResponse(newAccessToken, newRefreshToken));
+        Member member = memberMapper.selectByUserId(userId);
+        if (member == null) {
+            throw new CustomException("회원 정보를 찾을 수 없습니다.", HttpStatus.NOT_FOUND);
+        }
+
+        return ResponseEntity.ok(new TokenResponse(newAccessToken, member.getNickname()));
     }
 
 
