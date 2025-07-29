@@ -8,9 +8,19 @@ spring:
     password: ${DB_PASS}
     driver-class-name: org.postgresql.Driver
 
+  session:
+    store-type: jdbc
+    jdbc:
+      initialize-schema: never
 
-spring.jpa.hibernate.ddl-auto: update
-spring.jpa.show-sql: true
+mybatis:
+  configuration:
+    map-underscore-to-camel-case: true
+
+logging:
+  level:
+    org.mybatis: DEBUG
+    hackerton.seosancheck.mapper: DEBUG
 
 jwt:
   secret: ${JWT_SECRET}
