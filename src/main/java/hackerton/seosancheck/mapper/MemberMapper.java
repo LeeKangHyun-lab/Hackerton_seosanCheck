@@ -19,7 +19,14 @@ public interface MemberMapper {
     @Update("UPDATE members SET is_deleted = 'Y', deleted_at = NOW() WHERE id = #{id}")
     int softDeleteById(int id);
 
-    @Delete("DELETE FROM members WHERE is_deleted = 'Y' AND deleted_at < NOW() - INTERVAL 30 SECOND")
+    //MySQL
+//    @Delete("DELETE FROM members WHERE is_deleted = 'Y' AND deleted_at < NOW() - INTERVAL 30 SECOND")
+//    int deleteOldAccounts();
+
+    //PostgreSQL
+    @Delete("DELETE FROM members WHERE is_deleted = 'Y' AND deleted_at < NOW() - INTERVAL '30 seconds'")
     int deleteOldAccounts();
+
+
 }
 
