@@ -1,0 +1,18 @@
+server:
+  port: ${PORT:8080}
+
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASS}
+    driver-class-name: org.postgresql.Driver
+
+
+spring.jpa.hibernate.ddl-auto: update
+spring.jpa.show-sql: true
+
+jwt:
+  secret: ${JWT_SECRET}
+  access-expiry: 900000      # 15분
+  refresh-expiry: 1209600000 # 14일
