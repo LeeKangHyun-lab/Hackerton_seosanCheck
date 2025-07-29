@@ -13,7 +13,7 @@ public interface MemberMapper {
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(Member member);
 
-    @Select("SELECT id, user_id, user_pw FROM members WHERE user_id = #{userId} AND is_deleted = 'N'")
+    @Select("SELECT id, user_id, user_pw, nickname FROM members WHERE user_id = #{userId} AND is_deleted = 'N'")
     Member selectByUserId(String userId);
 
     @Update("UPDATE members SET is_deleted = 'Y', deleted_at = NOW() WHERE id = #{id}")
