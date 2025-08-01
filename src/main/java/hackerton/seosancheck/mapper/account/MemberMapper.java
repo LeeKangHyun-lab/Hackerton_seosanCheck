@@ -1,6 +1,6 @@
 package hackerton.seosancheck.mapper;
 
-import hackerton.seosancheck.entity.account.Member;
+import hackerton.seosancheck.model.account.Member;
 import org.apache.ibatis.annotations.*;
 
 @Mapper
