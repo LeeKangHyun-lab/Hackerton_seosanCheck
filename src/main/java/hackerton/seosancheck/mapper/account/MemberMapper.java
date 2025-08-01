@@ -1,6 +1,6 @@
-package hackerton.seosancheck.mapper;
+package hackerton.seosancheck.mapper.account;
 
-import hackerton.seosancheck.entity.account.Member;
+import hackerton.seosancheck.model.account.Member;
 import org.apache.ibatis.annotations.*;
 
 @Mapper
@@ -23,7 +23,7 @@ public interface MemberMapper {
 //    @Delete("DELETE FROM members WHERE is_deleted = 'Y' AND deleted_at < NOW() - INTERVAL 30 SECOND")
 //    int deleteOldAccounts();
 
-    //PostgreSQL
+//    //PostgreSQL
     @Delete("DELETE FROM members WHERE is_deleted = 'Y' AND deleted_at < NOW() - INTERVAL '30 seconds'")
     int deleteOldAccounts();
 

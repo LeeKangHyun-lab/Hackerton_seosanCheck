@@ -1,4 +1,4 @@
-package hackerton.seosancheck.entity.account;
+package hackerton.seosancheck.model.account;
 
 import lombok.Data;
 
