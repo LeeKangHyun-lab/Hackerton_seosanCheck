@@ -1,14 +1,12 @@
-package hackerton.seosancheck.entity.place;
+package hackerton.seosancheck.model.place;
 
-import jakarta.persistence.*;
+
 import lombok.Data;
 
 @Data
 public class Store {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
 
+    private Long id;
     private String name;          // 가맹점명
     private String baseAddress;   // 기본주소 (도로명)
     private String detailAddress; // 상세주소

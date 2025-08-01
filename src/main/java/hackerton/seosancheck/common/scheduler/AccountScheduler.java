@@ -1,6 +1,6 @@
 package hackerton.seosancheck.common.scheduler;
 
-import hackerton.seosancheck.mapper.MemberMapper;
+import hackerton.seosancheck.mapper.account.MemberMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;

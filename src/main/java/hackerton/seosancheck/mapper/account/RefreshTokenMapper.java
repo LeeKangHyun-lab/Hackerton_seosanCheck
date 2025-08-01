@@ -1,4 +1,4 @@
-package hackerton.seosancheck.mapper;
+package hackerton.seosancheck.mapper.account;
 
 import hackerton.seosancheck.model.account.RefreshToken;
 import org.apache.ibatis.annotations.Delete;

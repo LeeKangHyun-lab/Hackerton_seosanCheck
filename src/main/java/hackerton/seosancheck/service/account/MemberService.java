@@ -2,7 +2,7 @@ package hackerton.seosancheck.service.account;
 
 import hackerton.seosancheck.dto.account.request.MemberJoinRequest;
 import hackerton.seosancheck.dto.account.request.MemberLoginRequest;
-import hackerton.seosancheck.entity.account.Member;
+import hackerton.seosancheck.model.account.Member;
 
 public interface MemberService {
 
