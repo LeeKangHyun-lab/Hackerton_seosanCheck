@@ -1,7 +1,8 @@
-package hackerton.seosancheck.service.place;
+package hackerton.seosancheck.service.place.impl;
 
 import hackerton.seosancheck.mapper.place.StoreMapper;
 import hackerton.seosancheck.model.place.Store;
+import hackerton.seosancheck.service.place.StoreService;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -23,6 +24,8 @@ public class StoreServiceImpl implements StoreService {
     public void importExcel(MultipartFile file) {
         try (InputStream inputStream = file.getInputStream();
              Workbook workbook = new XSSFWorkbook(inputStream)) {
+
+            mapper.deleteAll();
 
             Sheet sheet = workbook.getSheetAt(0);
             for (int i = 1; i <= sheet.getLastRowNum(); i++) {
