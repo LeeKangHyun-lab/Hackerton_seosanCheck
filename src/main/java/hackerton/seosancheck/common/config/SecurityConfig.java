@@ -19,11 +19,16 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http.csrf(csrf -> csrf.disable())  // CSRF 비활성화
+        http
+                .csrf(csrf -> csrf.disable())  // CSRF 비활성화
+                .cors(cors -> {}) //cors 활성화(webConfig 사용)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/", "/api/account/**", "api/store/**", "api/tourist-places/**").permitAll()
                         .anyRequest().authenticated()
-                );
+
+                )
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+
         return http.build();
     }
 

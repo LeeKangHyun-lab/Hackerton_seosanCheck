@@ -9,6 +9,10 @@ import java.util.List;
 public interface StoreMapper {
 
     // 단건 INSERT
+
+    // (!!!!!!!!!!!!!!!!batch 방식으로 개선하기!!!!!!!!!!!!!!!!!!!!)
+
+
     @Insert("INSERT INTO store " +
             "(name, base_address, detail_address, location, type, mapx, mapy) " +
             "VALUES (#{name}, #{baseAddress}, #{detailAddress}, #{location}, #{type}, #{mapx}, #{mapy})")
