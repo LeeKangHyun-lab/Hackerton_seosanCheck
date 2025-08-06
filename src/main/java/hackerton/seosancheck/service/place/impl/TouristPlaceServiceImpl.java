@@ -46,7 +46,7 @@ public class TouristPlaceServiceImpl implements TouristPlaceService {
                 place.setArea(getString(row.getCell(5)));           // 지역
                 place.setCategory(getString(row.getCell(6)));       // 관심사
                 place.setImageUrl(getString(row.getCell(7)));       // 이미지 URL
-                place.setFinalType(getString(row.getCell(8)));      // 최종 분류
+                place.setType(getString(row.getCell(8)));      // 최종 분류
 
                 mapper.insert(place);
             }
@@ -60,10 +60,10 @@ public class TouristPlaceServiceImpl implements TouristPlaceService {
         return mapper.selectAll();
     }
 
-    @Override
-    public TouristPlace getById(Long id) {
-        return mapper.selectById(id);
-    }
+//    @Override
+//    public TouristPlace getById(Long id) {
+//        return mapper.selectById(id);
+//    }
 
     @Override
     public void clearAll() {

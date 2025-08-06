@@ -7,7 +7,10 @@ import java.util.List;
 
 public interface TouristPlaceService {
     void importExcel(MultipartFile file);
+
     List<TouristPlace> getAll();
-    TouristPlace getById(Long id);
+
+//    TouristPlace getById(Long id);
+
     void clearAll();
 }

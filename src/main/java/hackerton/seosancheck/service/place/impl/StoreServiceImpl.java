@@ -34,12 +34,12 @@ public class StoreServiceImpl implements StoreService {
 
                 Store store = new Store();
                 store.setName(getString(row.getCell(1)));
-                store.setBaseAddress(getString(row.getCell(2)));
+                store.setAddress(getString(row.getCell(2)));
                 store.setDetailAddress(getString(row.getCell(3)));
                 store.setLocation(getString(row.getCell(4)));
                 store.setType(getString(row.getCell(5)));
-                store.setMapx(getDouble(row.getCell(6)));
-                store.setMapy(getDouble(row.getCell(7)));
+                store.setLongitude(getDouble(row.getCell(6)));
+                store.setLatitude(getDouble(row.getCell(7)));
 
                 mapper.insert(store);
             }
@@ -53,10 +53,10 @@ public class StoreServiceImpl implements StoreService {
         return mapper.selectAll();
     }
 
-    @Override
-    public Store getStoreById(Long id) {
-        return mapper.selectById(id);
-    }
+//    @Override
+//    public Store getStoreById(Long id) {
+//        return mapper.selectById(id);
+//    }
 
     private String getString(Cell cell) {
         return cell == null ? "" : cell.toString().trim();
