@@ -24,10 +24,10 @@ public interface StoreMapper {
             "location, type, longitude, latitude FROM store")
     List<Store> selectAll();
 
-//    // 특정 id로 조회
-//    @Select("SELECT id, name, address, detail_address AS detailAddress, " +
-//            "location, type, longitude, latitude FROM store WHERE id = #{id}")
-//    Store selectById(Long id);
+    // 특정 id로 조회
+    @Select("SELECT id, name, address, detail_address AS detailAddress, " +
+            "location, type, longitude, latitude FROM store WHERE id = #{id}")
+    Store selectById(Long id);
 
     // 기존 데이터 삭제 (전체 삭제)
     @Delete("DELETE FROM store")

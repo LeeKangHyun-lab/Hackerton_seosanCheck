@@ -53,10 +53,10 @@ public class StoreServiceImpl implements StoreService {
         return mapper.selectAll();
     }
 
-//    @Override
-//    public Store getStoreById(Long id) {
-//        return mapper.selectById(id);
-//    }
+    @Override
+    public Store getStoreById(Long id) {
+        return mapper.selectById(id);
+    }
 
     private String getString(Cell cell) {
         return cell == null ? "" : cell.toString().trim();

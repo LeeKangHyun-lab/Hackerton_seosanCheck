@@ -60,10 +60,10 @@ public class TouristPlaceServiceImpl implements TouristPlaceService {
         return mapper.selectAll();
     }
 
-//    @Override
-//    public TouristPlace getById(Long id) {
-//        return mapper.selectById(id);
-//    }
+    @Override
+    public TouristPlace getById(Long id) {
+        return mapper.selectById(id);
+    }
 
     @Override
     public void clearAll() {

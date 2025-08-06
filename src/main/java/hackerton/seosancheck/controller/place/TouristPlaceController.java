@@ -27,14 +27,14 @@ public class TouristPlaceController {
         return ResponseEntity.ok(service.getAll());
     }
 
-//    @GetMapping("/{id}")
-//    public ResponseEntity<TouristPlace> getById(@PathVariable Long id) {
-//        TouristPlace place = service.getById(id);
-//        if (place == null) {
-//            return ResponseEntity.notFound().build();
-//        }
-//        return ResponseEntity.ok(place);
-//    }
+    @GetMapping("/{id}")
+    public ResponseEntity<TouristPlace> getById(@PathVariable Long id) {
+        TouristPlace place = service.getById(id);
+        if (place == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(place);
+    }
 
     @DeleteMapping("/clear")
     public ResponseEntity<String> clearAll() {

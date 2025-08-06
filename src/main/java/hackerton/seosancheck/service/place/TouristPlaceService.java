@@ -10,7 +10,7 @@ public interface TouristPlaceService {
 
     List<TouristPlace> getAll();
 
-//    TouristPlace getById(Long id);
+    TouristPlace getById(Long id);
 
     void clearAll();
 }
