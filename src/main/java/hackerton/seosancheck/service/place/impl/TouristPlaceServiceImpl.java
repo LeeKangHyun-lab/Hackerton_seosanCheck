@@ -10,7 +10,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.List;
+
+import static java.lang.Double.parseDouble;
 
 @Service
 @RequiredArgsConstructor
@@ -26,6 +29,8 @@ public class TouristPlaceServiceImpl implements TouristPlaceService {
             mapper.deleteAll();
 
             Sheet sheet = workbook.getSheetAt(0);
+            List<TouristPlace> places = new ArrayList<>();
+
             for (int i = 1; i <= sheet.getLastRowNum(); i++) {
                 Row row = sheet.getRow(i);
                 if (row == null) continue;
@@ -37,8 +42,8 @@ public class TouristPlaceServiceImpl implements TouristPlaceService {
                 String gps = getString(row.getCell(2)); // 위치(GPS)
                 if (gps.contains(",")) {
                     String[] parts = gps.split(",");
-                    place.setLatitude(Double.parseDouble(parts[0].trim()));
-                    place.setLongitude(Double.parseDouble(parts[1].trim()));
+                    place.setLatitude(parseDouble(parts[0]));
+                    place.setLongitude(parseDouble(parts[1]));
                 }
 
                 place.setDescription(getString(row.getCell(3)));    // 해설
@@ -46,10 +51,18 @@ public class TouristPlaceServiceImpl implements TouristPlaceService {
                 place.setArea(getString(row.getCell(5)));           // 지역
                 place.setCategory(getString(row.getCell(6)));       // 관심사
                 place.setImageUrl(getString(row.getCell(7)));       // 이미지 URL
-                place.setType(getString(row.getCell(8)));      // 최종 분류
+                place.setType(getString(row.getCell(8)));           // 최종 분류
 
-                mapper.insert(place);
+                places.add(place);
             }
+
+            // 1000건 단위로 배치 insert
+            int batchSize = 1000;
+            for (int i = 0; i < places.size(); i += batchSize) {
+                int end = Math.min(i + batchSize, places.size());
+                mapper.batchInsert(places.subList(i, end));
+            }
+
         } catch (Exception e) {
             throw new RuntimeException("엑셀 업로드 실패: " + e.getMessage());
         }

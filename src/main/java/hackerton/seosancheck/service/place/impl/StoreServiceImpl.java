@@ -5,6 +5,7 @@ import hackerton.seosancheck.model.place.Store;
 import hackerton.seosancheck.service.place.StoreService;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -20,6 +22,33 @@ public class StoreServiceImpl implements StoreService {
 
     private final StoreMapper mapper;
 
+//    @Override
+//    public void importExcel(MultipartFile file) {
+//        try (InputStream inputStream = file.getInputStream();
+//             Workbook workbook = new XSSFWorkbook(inputStream)) {
+//
+//            mapper.deleteAll();
+//
+//            Sheet sheet = workbook.getSheetAt(0);
+//            for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+//                org.apache.poi.ss.usermodel.Row row = sheet.getRow(i);
+//                if (row == null) continue;
+//
+//                Store store = new Store();
+//                store.setName(getString(row.getCell(1)));
+//                store.setAddress(getString(row.getCell(2)));
+//                store.setDetailAddress(getString(row.getCell(3)));
+//                store.setLocation(getString(row.getCell(4)));
+//                store.setType(getString(row.getCell(5)));
+//                store.setLongitude(getDouble(row.getCell(6)));
+//                store.setLatitude(getDouble(row.getCell(7)));
+//
+//                mapper.insert(store);
+//            }
+//        } catch (Exception e) {
+//            throw new RuntimeException("엑셀 업로드 실패: " + e.getMessage());
+//        }
+//    }
     @Override
     public void importExcel(MultipartFile file) {
         try (InputStream inputStream = file.getInputStream();
@@ -28,8 +57,10 @@ public class StoreServiceImpl implements StoreService {
             mapper.deleteAll();
 
             Sheet sheet = workbook.getSheetAt(0);
+            List<Store> storeList = new ArrayList<>();
+
             for (int i = 1; i <= sheet.getLastRowNum(); i++) {
-                org.apache.poi.ss.usermodel.Row row = sheet.getRow(i);
+                Row row = sheet.getRow(i);
                 if (row == null) continue;
 
                 Store store = new Store();
@@ -41,12 +72,21 @@ public class StoreServiceImpl implements StoreService {
                 store.setLongitude(getDouble(row.getCell(6)));
                 store.setLatitude(getDouble(row.getCell(7)));
 
-                mapper.insert(store);
+                storeList.add(store);
             }
+
+            // 1000건 단위로 배치 insert
+            int batchSize = 1000;
+            for (int i = 0; i < storeList.size(); i += batchSize) {
+                int end = Math.min(i + batchSize, storeList.size());
+                mapper.batchInsert(storeList.subList(i, end));
+            }
+
         } catch (Exception e) {
             throw new RuntimeException("엑셀 업로드 실패: " + e.getMessage());
         }
     }
+
 
     @Override
     public List<Store> getAllStores() {
