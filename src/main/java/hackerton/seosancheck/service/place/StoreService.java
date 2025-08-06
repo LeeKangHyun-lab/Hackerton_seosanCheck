@@ -11,6 +11,6 @@ public interface StoreService {
 
     List<Store> getAllStores();
 
-    Store getStoreById(Long id);
+//    Store getStoreById(Long id);
 
 }
