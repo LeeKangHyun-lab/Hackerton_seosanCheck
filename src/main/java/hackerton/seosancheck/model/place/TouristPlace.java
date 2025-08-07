@@ -14,5 +14,4 @@ public class TouristPlace {
     private String area;          // 지역
     private String category;      // 관심사
     private String imageUrl;      // 이미지 URL
-    private String type;     // 최종 분류
 }
