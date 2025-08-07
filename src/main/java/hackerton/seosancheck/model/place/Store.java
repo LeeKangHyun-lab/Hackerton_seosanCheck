@@ -14,4 +14,6 @@ public class Store {
     private String type;          // 가맹점유형
     private Double longitude;          // 경도
     private Double latitude;          // 위도
+    private String kindStore;
+    private String tag;
 }

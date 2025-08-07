@@ -34,4 +34,8 @@ public interface TouristPlaceMapper {
 
     @Delete("DELETE FROM tourist_place")
     int deleteAll();
+
+    @Select("SELECT * FROM tourist_place ORDER BY RAND() LIMIT #{limit}")
+    List<TouristPlace> findRandom(@Param("limit") int limit);
+
 }

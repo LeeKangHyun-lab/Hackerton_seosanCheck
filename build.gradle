@@ -59,7 +59,10 @@ dependencies {
     implementation 'org.apache.poi:poi:5.2.3'
     implementation 'org.apache.poi:poi-ooxml:5.2.3'
 
-
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-json'
+//    implementation 'org.apache.httpcomponents.client5:httpclient5:5.2.1'
+//    implementation 'org.apache.httpcomponents.core5:httpcore5:5.2.1'
 }
 
 tasks.named('test') {

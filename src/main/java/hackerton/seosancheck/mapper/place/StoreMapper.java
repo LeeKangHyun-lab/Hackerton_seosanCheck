@@ -1,6 +1,7 @@
 package hackerton.seosancheck.mapper.place;
 
 import hackerton.seosancheck.model.place.Store;
+import hackerton.seosancheck.model.place.TouristPlace;
 import org.apache.ibatis.annotations.*;
 
 import java.util.List;
@@ -9,16 +10,16 @@ import java.util.List;
 public interface StoreMapper {
 
     @Insert("INSERT INTO store " +
-            "(name, address, detail_address, location, type, longitude, latitude) " +
-            "VALUES (#{name}, #{address}, #{detailAddress}, #{location}, #{type}, #{longitude}, #{latitude})")
+            "(name, address, detail_address, location, type, longitude, latitude, kind_store, tag) " +
+            "VALUES (#{name}, #{address}, #{detailAddress}, #{location}, #{type}, #{longitude}, #{latitude}, #{kindStore}, #{tag})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(Store store);
 
     @Insert({
             "<script>",
-            "INSERT INTO store (name, address, detail_address, location, type, longitude, latitude) VALUES",
+            "INSERT INTO store (name, address, detail_address, location, type, longitude, latitude, kind_store, tag) VALUES",
             "<foreach collection='list' item='store' separator=','>",
-            "(#{store.name}, #{store.address}, #{store.detailAddress}, #{store.location}, #{store.type}, #{store.longitude}, #{store.latitude})",
+            "(#{store.name}, #{store.address}, #{store.detailAddress}, #{store.location}, #{store.type}, #{store.longitude}, #{store.latitude}, #{store.kindStore}, #{store.tag})",
             "</foreach>",
             "</script>"
     })
@@ -26,15 +27,18 @@ public interface StoreMapper {
 
     // 전체 SELECT
     @Select("SELECT id, name, address, detail_address AS detailAddress, " +
-            "location, type, longitude, latitude FROM store")
+            "location, type, longitude, latitude, kind_store AS kindStore, tag FROM store")
     List<Store> selectAll();
 
     // 특정 id로 조회
     @Select("SELECT id, name, address, detail_address AS detailAddress, " +
-            "location, type, longitude, latitude FROM store WHERE id = #{id}")
+            "location, type, longitude, latitude, kind_store AS kindStore, tag FROM store WHERE id = #{id}")
     Store selectById(Long id);
 
     // 기존 데이터 삭제 (전체 삭제)
     @Delete("DELETE FROM store")
     int deleteAll();
+
+    @Select("SELECT * FROM store ORDER BY RAND() LIMIT #{limit}")
+    List<Store> findRandom(@Param("limit") int limit);
 }

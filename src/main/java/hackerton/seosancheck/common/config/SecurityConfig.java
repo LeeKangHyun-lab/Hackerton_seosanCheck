@@ -23,7 +23,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())  // CSRF 비활성화
                 .cors(cors -> {}) //cors 활성화(webConfig 사용)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/", "/api/account/**", "api/store/**", "api/tourist-places/**").permitAll()
+                        .requestMatchers("/", "/api/account/**", "api/store/**", "api/tourist-places/**", "api/ai/**").permitAll()
                         .anyRequest().authenticated()
 
                 )
