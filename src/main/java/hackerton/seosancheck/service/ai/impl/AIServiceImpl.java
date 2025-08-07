@@ -10,10 +10,15 @@ import hackerton.seosancheck.model.place.TouristPlace;
 import hackerton.seosancheck.service.ai.AiService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.ResourceLoader;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -26,58 +31,60 @@ public class AIServiceImpl implements AiService {
     private final StoreMapper storeMapper;
     private final TouristPlaceMapper touristPlaceMapper;
     private final RestTemplate restTemplate;
+    private final ResourceLoader resourceLoader;
 
     @Value("${openai.api-key}")
     private String apiKey;
 
     private static final String API_URL = "https://api.openai.com/v1/chat/completions";
 
+    private String loadPromptTemplate(String filePath) {
+        try {
+            Resource resource = resourceLoader.getResource("classpath:" + filePath);
+            return new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new UncheckedIOException("프롬프트 파일 로딩 실패", e);
+        }
+    }
+
     @Override
     public TravelPlanResponse generateTravelPlan(String area, String category, String text) {
         List<TouristPlace> places = touristPlaceMapper.findRandomByAreaAndCategory(area, category, 5);
         List<Store> stores = storeMapper.findRandom(10);
 
-        StringBuilder prompt = new StringBuilder();
-        prompt.append("서산에서 ").append(area).append(" 지역의 '").append(category)
-                .append("' 카테고리에 맞는 당일치기 여행 코스를 추천해줘.\n")
-                .append("다음은 관광지와 가게 목록이야:\n\n")
-                .append("[관광지]\n");
+        // 1. 템플릿 불러오기
+        String template = loadPromptTemplate("prompt/ai_Prompt2");
 
-        for (TouristPlace place : places) {
-            prompt.append("- ").append(place.getName())
-                    .append(" (").append(place.getCategory()).append(", ").append(place.getArea()).append(")\n");
-        }
+        // 2. 데이터 변환
+        String placeList = places.stream()
+                .map(p -> "- " + p.getName() + " (" + p.getCategory() + ", " + p.getArea() + ")")
+                .collect(Collectors.joining("\n"));
 
-        prompt.append("\n[가게]\n");
-        for (Store store : stores) {
-            prompt.append("- ").append(store.getName())
-                    .append(" (").append(store.getType()).append(", ").append(store.getLocation()).append(")\n");
-        }
+        String storeList = stores.stream()
+                .map(s -> "- " + s.getName() + " (" + s.getType() + ", " + s.getLocation() + ")")
+                .collect(Collectors.joining("\n"));
 
-        prompt.append("\n위 장소 중 3곳을 관광지-가게-관광지-관광지-가게 순서로 추천해줘. 장소는 앞 장소에서 가까운 곳으로 골라줘.\n");
+        String userCondition = "";
         if (text != null && !text.isBlank()) {
-            prompt.append("사용자 요청 조건: ").append(text).append("\n");
-            prompt.append("가게 추천 시 tag 필드(매운맛, 채식 등) 고려해줘.\n");
+            userCondition = "사용자 요청 조건: " + text + "\n" +
+                    "사용자 요청 조건이 논리에 맞지 않거나, 음식점과 관련이 없을 경우 다시 입력해주세요 라고 출력해줘.\n" +
+                    "가게 추천 시 tag 필드(매운맛, 채식 등) 고려해줘.";
         }
 
-        prompt.append("\n설명 없이 순수 JSON만 응답해줘:\n")
-                .append("{\n")
-                .append("  \"summary\": \"여행 요약\",\n")
-                .append("  \"course\": [\n")
-                .append("    {\"order\": 1, \"type\": \"관광지\", \"name\": \"간월암\", \"description\": \"자세한 설명\"},\n")
-                .append("    {\"order\": 2, \"type\": \"가게\", \"name\": \"양평해장국\", \"description\": \"자세한 설명 \"}\n")
-                .append("  ]\n")
-                .append("}")
-                .append("description은 자세히 작성해줘")
-                .append("summary는 장소들의 특징을 담아 상세히 써줘");
+        // 3. 프롬프트 치환
+        String finalPrompt = template
+                .replace("{area}", area)
+                .replace("{category}", category)
+                .replace("{placeList}", placeList)
+                .replace("{storeList}", storeList)
+                .replace("{userCondition}", userCondition);
 
-
-        // OpenAI 요청
+        // 4. OpenAI 요청
         Map<String, Object> requestBody = Map.of(
                 "model", "gpt-4o-mini",
                 "messages", List.of(
                         Map.of("role", "system", "content", "당신은 여행 코디네이터입니다."),
-                        Map.of("role", "user", "content", prompt.toString())
+                        Map.of("role", "user", "content", finalPrompt)
                 )
         );
 
@@ -88,6 +95,7 @@ public class AIServiceImpl implements AiService {
 
         ResponseEntity<Map> response = restTemplate.postForEntity(API_URL, entity, Map.class);
 
+        // 5. 응답 파싱
         String aiText = "";
         String summary = "";
         List<TravelItem> course = List.of();
@@ -119,14 +127,16 @@ public class AIServiceImpl implements AiService {
                                     .filter(p -> p.getName().equals(name)).findFirst().orElse(null);
                             if (match != null) {
                                 return new TravelItem(order, type, name, description,
-                                        match.getAddress(), match.getLatitude(), match.getLongitude(), match.getImageUrl());
+                                        match.getAddress(), match.getLatitude(), match.getLongitude(),
+                                         match.getImageUrl());
                             }
                         } else if ("가게".equals(type)) {
                             Store match = stores.stream()
                                     .filter(s -> s.getName().equals(name)).findFirst().orElse(null);
                             if (match != null) {
                                 return new TravelItem(order, type, name, description,
-                                        match.getAddress(), match.getLatitude(), match.getLongitude(), null);
+                                        match.getAddress(), match.getLatitude(), match.getLongitude(),
+                                        match.getTag());
                             }
                         }
                         return null;
@@ -146,10 +156,8 @@ public class AIServiceImpl implements AiService {
     public List<TravelPlanResponse> generateMultiplePlans(String area, String category, String text) {
         List<TravelPlanResponse> plans = new ArrayList<>();
         for (int i = 0; i < 3; i++) {
-            TravelPlanResponse singlePlan = generateTravelPlan(area, category, text);
-            plans.add(singlePlan);
+            plans.add(generateTravelPlan(area, category, text));
         }
         return plans;
     }
-
 }
