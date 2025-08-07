@@ -39,6 +39,11 @@ public interface StoreMapper {
     @Delete("DELETE FROM store")
     int deleteAll();
 
-    @Select("SELECT * FROM store ORDER BY RAND() LIMIT #{limit}")
+//    MySQL>
+//    @Select("SELECT * FROM store ORDER BY RAND() LIMIT #{limit}")
+//    List<Store> findRandom(@Param("limit") int limit);
+
+    //postgreSQL>
+    @Select("SELECT * FROM store ORDER BY random() LIMIT #{limit}")
     List<Store> findRandom(@Param("limit") int limit);
 }
