@@ -36,20 +36,20 @@ public interface TouristPlaceMapper {
     int deleteAll();
 
 //    MySQL
-//    @Select("SELECT * FROM tourist_place " +
-//            "WHERE area = #{area} AND category = #{category} " +
-//            "ORDER BY RAND() LIMIT #{limit}")
-//    List<TouristPlace> findRandomByAreaAndCategory(@Param("area") String area,
-//                                                   @Param("category") String category,
-//                                                   @Param("limit") int limit);
-
-//    postgreSQL
     @Select("SELECT * FROM tourist_place " +
             "WHERE area = #{area} AND category = #{category} " +
-            "ORDER BY random() LIMIT #{limit}")
+            "ORDER BY RAND() LIMIT #{limit}")
     List<TouristPlace> findRandomByAreaAndCategory(@Param("area") String area,
                                                    @Param("category") String category,
                                                    @Param("limit") int limit);
+
+//    postgreSQL
+//    @Select("SELECT * FROM tourist_place " +
+//            "WHERE area = #{area} AND category = #{category} " +
+//            "ORDER BY random() LIMIT #{limit}")
+//    List<TouristPlace> findRandomByAreaAndCategory(@Param("area") String area,
+//                                                   @Param("category") String category,
+//                                                   @Param("limit") int limit);
 
 
 }
