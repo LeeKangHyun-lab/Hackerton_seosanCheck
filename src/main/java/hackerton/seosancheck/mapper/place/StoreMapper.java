@@ -46,4 +46,5 @@ public interface StoreMapper {
     //postgreSQL>
     @Select("SELECT * FROM store ORDER BY random() LIMIT #{limit}")
     List<Store> findRandom(@Param("limit") int limit);
+
 }
