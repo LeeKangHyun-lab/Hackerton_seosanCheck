@@ -71,6 +71,8 @@ public class StoreServiceImpl implements StoreService {
                 store.setType(getString(row.getCell(5)));
                 store.setLongitude(getDouble(row.getCell(6)));
                 store.setLatitude(getDouble(row.getCell(7)));
+                store.setKindStore(getString(row.getCell(8)));
+                store.setTag(getString(row.getCell(9)));
 
                 storeList.add(store);
             }

@@ -1,12 +1,10 @@
-package hackerton.seosancheck.service.ai;
+package hackerton.seosancheck.service.ai.impl;
 
 import hackerton.seosancheck.mapper.place.StoreMapper;
 import hackerton.seosancheck.mapper.place.TouristPlaceMapper;
 import hackerton.seosancheck.model.place.Store;
 import hackerton.seosancheck.model.place.TouristPlace;
-import hackerton.seosancheck.model.ai.ChatRequest;
-import hackerton.seosancheck.model.ai.ChatResponse;
-import hackerton.seosancheck.model.ai.Message;
+import hackerton.seosancheck.service.ai.AiService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -14,56 +12,69 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
-public class AIService {
+public class AIServiceImpl implements AiService {
 
     private final StoreMapper storeMapper;
     private final TouristPlaceMapper touristPlaceMapper;
+    private final RestTemplate restTemplate;
 
     @Value("${openai.api-key}")
     private String apiKey;
 
     private static final String API_URL = "https://api.openai.com/v1/chat/completions";
 
-    public String generateTravelPlan(String area) {
-        // 1. DB 데이터 가져오기
-        List<TouristPlace> places = touristPlaceMapper.findTouristPlacesByArea(area);
-        List<Store> stores = storeMapper.findStoresByLocation(area);
+    public String generateTravelPlan() {
+        // 1. 데이터 샘플링 (랜덤 5개씩만 사용)
+        List<TouristPlace> places = touristPlaceMapper.findRandom(5);  // 이 메서드는 직접 구현 필요
+        List<Store> stores = storeMapper.findRandom(5);                // 이 메서드도 구현 필요
 
-        // 2. 프롬프트 작성
+        // 2. 간결한 프롬프트 생성
         StringBuilder prompt = new StringBuilder();
-        prompt.append("사용자는 ").append(area).append(" 지역에서 1박 2일 여행 코스를 원합니다.\n");
-        prompt.append("아래 관광지와 식당을 참고하여 JSON 형식으로 추천해 주세요.\n\n");
-        prompt.append("관광지 목록:\n");
-        for (TouristPlace p : places) {
-            prompt.append("- ").append(p.getName()).append(" (").append(p.getCategory()).append(")\n");
-        }
-        prompt.append("\n식당 목록:\n");
-        for (Store s : stores) {
-            prompt.append("- ").append(s.getName()).append(" (").append(s.getType()).append(")\n");
-        }
-        prompt.append("\n응답 형식:\n");
-        prompt.append("{ \"day1\": [\"관광지1\", \"식당1\"], \"day2\": [\"관광지2\", \"식당2\"] }");
+        prompt.append("서산에서 당일치기 여행 코스를 추천해줘.\n");
+        prompt.append("관광지와 가게는 다음과 같아:\n\n");
 
-        // 3. OpenAI API 호출
-        RestTemplate restTemplate = new RestTemplate();
+        prompt.append("[관광지]\n");
+        for (TouristPlace place : places) {
+            prompt.append("- ").append(place.getName())
+                    .append(" (").append(place.getCategory()).append(", ").append(place.getArea()).append(")\n");
+        }
 
-        ChatRequest chatRequest = new ChatRequest("gpt-4o-mini", List.of(
-                new Message("system", "You are a helpful travel planner."),
-                new Message("user", prompt.toString())
-        ));
+        prompt.append("\n[가게]\n");
+        for (Store store : stores) {
+            prompt.append("- ").append(store.getName())
+                    .append(" (").append(store.getType()).append(", ").append(store.getLocation()).append(")\n");
+        }
+
+        prompt.append("\n위 장소 중 3개를 관광지, 가게, 관광지 순서로 추천해줘.");
+
+        // 3. OpenAI API 요청
+        Map<String, Object> requestBody = Map.of(
+                "model", "gpt-4o-mini",
+                "messages", List.of(
+                        Map.of("role", "system", "content", "당신은 여행 코디네이터입니다."),
+                        Map.of("role", "user", "content", prompt.toString())
+                )
+        );
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setBearerAuth(apiKey);
 
-        HttpEntity<ChatRequest> entity = new HttpEntity<>(chatRequest, headers);
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+        ResponseEntity<Map> response = restTemplate.postForEntity(API_URL, entity, Map.class);
 
-        ResponseEntity<ChatResponse> response =
-                restTemplate.exchange(API_URL, HttpMethod.POST, entity, ChatResponse.class);
-
-        return response.getBody().getChoices().get(0).getMessage().getContent();
+        Map<String, Object> responseBody = response.getBody();
+        if (responseBody != null && responseBody.containsKey("choices")) {
+            List<Map<String, Object>> choices = (List<Map<String, Object>>) responseBody.get("choices");
+            if (!choices.isEmpty()) {
+                Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
+                return (String) message.get("content");
+            }
+        }
+        return "여행 코스를 생성할 수 없습니다.";
     }
 }

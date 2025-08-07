@@ -1,13 +1,16 @@
 package hackerton.seosancheck.model.ai;
 
 import lombok.Data;
-import lombok.Getter;
-import lombok.Setter;
+
+import java.util.List;
 
 @Data
-public class TouristPlace {
-    private Long id;
-    private String name;
-    private String address;
-    private String theme;
+public class ChatRequest {
+    private String model;
+    private List<Message> messages;
+
+    public ChatRequest(String model, List<Message> messages) {
+        this.model = model;
+        this.messages = messages;
+    }
 }

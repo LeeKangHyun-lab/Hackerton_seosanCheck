@@ -26,3 +26,6 @@ jwt:
   secret: ${JWT_SECRET}
   access-expiry: 900000      # 15분
   refresh-expiry: 1209600000 # 14일
+
+openai:
+  api-key: ${OPENAI_API_KEY}

@@ -1,4 +1,7 @@
-package hackerton.seosancheck.service.ai.impl;
+package hackerton.seosancheck.service.ai;
 
-public class AiService {
+public interface AiService {
+
+    public String generateTravelPlan();
+
 }
