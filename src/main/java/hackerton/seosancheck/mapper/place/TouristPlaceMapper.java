@@ -44,12 +44,24 @@ public interface TouristPlaceMapper {
 //                                                   @Param("limit") int limit);
 
 //    postgreSQL
-    @Select("SELECT * FROM tourist_place " +
-            "WHERE area = #{area} AND category = #{category} " +
-            "ORDER BY random() LIMIT #{limit}")
-    List<TouristPlace> findRandomByAreaAndCategory(@Param("area") String area,
-                                                   @Param("category") String category,
-                                                   @Param("limit") int limit);
+//    @Select("SELECT * FROM tourist_place " +
+//            "WHERE area = #{area} AND category = #{category} " +
+//            "ORDER BY random() LIMIT #{limit}")
+//    List<TouristPlace> findRandomByAreaAndCategory(@Param("area") String area,
+//                                                   @Param("category") String category,
+//                                                   @Param("limit") int limit);
 
+
+    //MySQL
+    @Select("SELECT COUNT(*) FROM tourist_place WHERE area = #{area} AND category = #{category}")
+    int countByAreaCategory(@Param("area") String area, @Param("category") String category);
+
+    @Select("SELECT id, name, address, latitude, longitude, image_url AS imageUrl, area, category " +
+            "FROM tourist_place WHERE area = #{area} AND category = #{category} " +
+            "ORDER BY id LIMIT #{limit} OFFSET #{offset}")
+    List<TouristPlace> findPageByAreaAndCategory(@Param("area") String area,
+                                                 @Param("category") String category,
+                                                 @Param("limit") int limit,
+                                                 @Param("offset") int offset);
 
 }

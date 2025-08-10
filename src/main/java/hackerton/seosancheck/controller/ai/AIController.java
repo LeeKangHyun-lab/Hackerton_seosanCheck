@@ -1,5 +1,6 @@
 package hackerton.seosancheck.controller.ai;
 
+import hackerton.seosancheck.model.ai.TravelConditions;
 import hackerton.seosancheck.model.ai.TravelPlanResponse;
 import hackerton.seosancheck.service.ai.impl.AIServiceImpl;
 import lombok.RequiredArgsConstructor;
@@ -17,23 +18,30 @@ public class AIController {
 
     private final AIServiceImpl aiService;
 
-    @GetMapping("/travel-plan")
-    public ResponseEntity<TravelPlanResponse> getPlan(
-            @RequestParam String area,
-            @RequestParam String category,
-            @RequestParam(required = false) String text
-    ) {
-        log.info("[travel-plan] area: {}, category: {}, text: {}", area, category, text);
-        return ResponseEntity.ok(aiService.generateTravelPlan(area, category, text));
-    }
+//    @GetMapping("/travel-plan")
+//    public ResponseEntity<TravelPlanResponse> getPlan(
+//            @RequestParam String area,
+//            @RequestParam String category,
+//            @RequestParam(required = false) String text
+//    ) {
+//        log.info("[travel-plan] area: {}, category: {}, text: {}", area, category, text);
+//        return ResponseEntity.ok(aiService.generateTravelPlan(area, category, text));
+//    }
 
-    @GetMapping("/travel-plans") // 복수형
-    public ResponseEntity<List<TravelPlanResponse>> getMultiplePlans(
+    @GetMapping("/travel-plans")
+    public ResponseEntity<List<TravelPlanResponse>> getPlans(
             @RequestParam String area,
             @RequestParam String category,
             @RequestParam(required = false) String text
     ) {
         log.info("[travel-plans] area: {}, category: {}, text: {}", area, category, text);
         return ResponseEntity.ok(aiService.generateMultiplePlans(area, category, text));
+    }
+
+    // 디버그용
+    @GetMapping("/extract-conditions")
+    public ResponseEntity<TravelConditions> extractConditions(@RequestParam String sentence) {
+        log.info("[extract-conditions] sentence: {}", sentence);
+        return ResponseEntity.ok(aiService.extractConditions(sentence));
     }
 }

@@ -40,11 +40,23 @@ public interface StoreMapper {
     int deleteAll();
 
 //    MySQL>
-//    @Select("SELECT * FROM store ORDER BY RAND() LIMIT #{limit}")
-//    List<Store> findRandom(@Param("limit") int limit);
+//        @Select("SELECT * FROM store ORDER BY RAND() LIMIT #{limit}")
+//        List<Store> findRandom(@Param("limit") int limit);
 
     //postgreSQL>
-    @Select("SELECT * FROM store ORDER BY random() LIMIT #{limit}")
-    List<Store> findRandom(@Param("limit") int limit);
+//    @Select("SELECT * FROM store ORDER BY random() LIMIT #{limit}")
+//    List<Store> findRandom(@Param("limit") int limit);
 
+    //MySQL
+    @Select("SELECT id, name, address, latitude, longitude, tag " +
+            "FROM store " +
+            "WHERE latitude BETWEEN #{minLat} AND #{maxLat} " +
+            "AND longitude BETWEEN #{minLon} AND #{maxLon} " +
+            "LIMIT #{limit}")
+    List<Store> findStoresInBox(@Param("minLat") double minLat, @Param("maxLat") double maxLat,
+                                @Param("minLon") double minLon, @Param("maxLon") double maxLon,
+                                @Param("limit") int limit);
+
+    @Select("SELECT id, name, address, latitude, longitude, tag FROM store ORDER BY id DESC LIMIT #{limit}")
+    List<Store> findRecent(@Param("limit") int limit);
 }
