@@ -35,7 +35,7 @@ public class AIController {
             @RequestParam(required = false) String text
     ) {
         log.info("[travel-plans] area: {}, category: {}, text: {}", area, category, text);
-        return ResponseEntity.ok(aiService.generateMultiplePlans(area, category, text));
+        return ResponseEntity.ok(aiService.generateMultiplePlans(text, area, category));
     }
 
     // 디버그용
