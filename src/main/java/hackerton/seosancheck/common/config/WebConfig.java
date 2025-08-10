@@ -6,6 +6,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+// WebConfig.java
 @Configuration
 public class WebConfig {
 
@@ -15,7 +16,11 @@ public class WebConfig {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
-                        .allowedOrigins("http://localhost:3000", "https://hackerton-seosanbook.onrender.com", "https://seosancheck.web.app")
+                        .allowedOrigins(
+                                "http://localhost:3000",
+                                "https://hackerton-seosanbook.onrender.com",
+                                "https://seosancheck.web.app"
+                        )
                         .allowedMethods("GET", "POST", "PUT", "DELETE")
                         .allowedHeaders("*");
             }

@@ -1,88 +1,215 @@
-    package hackerton.seosancheck.service.ai.impl;
+package hackerton.seosancheck.service.ai.impl;
 
-    import com.fasterxml.jackson.databind.ObjectMapper;
-    import hackerton.seosancheck.mapper.place.StoreMapper;
-    import hackerton.seosancheck.mapper.place.TouristPlaceMapper;
-    import hackerton.seosancheck.model.ai.TravelItem;
-    import hackerton.seosancheck.model.ai.TravelPlanResponse;
-    import hackerton.seosancheck.model.place.Store;
-    import hackerton.seosancheck.model.place.TouristPlace;
-    import hackerton.seosancheck.service.ai.AiService;
-    import lombok.RequiredArgsConstructor;
-    import org.springframework.beans.factory.annotation.Value;
-    import org.springframework.http.*;
-    import org.springframework.stereotype.Service;
-    import org.springframework.web.client.RestTemplate;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import hackerton.seosancheck.mapper.place.StoreMapper;
+import hackerton.seosancheck.mapper.place.TouristPlaceMapper;
+import hackerton.seosancheck.model.ai.TravelConditions;
+import hackerton.seosancheck.model.ai.TravelItem;
+import hackerton.seosancheck.model.ai.TravelPlanResponse;
+import hackerton.seosancheck.model.place.Store;
+import hackerton.seosancheck.model.place.TouristPlace;
+import hackerton.seosancheck.service.ai.AiService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
-    import java.util.ArrayList;
-    import java.util.List;
-    import java.util.Map;
-    import java.util.stream.Collectors;
+import java.util.*;
+import java.util.regex.*;
+import java.util.stream.Collectors;
 
-    @Service
-    @RequiredArgsConstructor
-    public class AIServiceImpl implements AiService {
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class AIServiceImpl implements AiService {
 
-        private final StoreMapper storeMapper;
-        private final TouristPlaceMapper touristPlaceMapper;
-        private final RestTemplate restTemplate;
+    private final StoreMapper storeMapper;
+    private final TouristPlaceMapper touristPlaceMapper;
+    private final RestTemplate restTemplate;
 
-        @Value("${openai.api-key}")
-        private String apiKey;
+    @Value("${openai.api-key}")
+    private String apiKey;
 
-        private static final String API_URL = "https://api.openai.com/v1/chat/completions";
+    private static final String API_URL = "https://api.openai.com/v1/chat/completions";
 
-        @Override
-        public TravelPlanResponse generateTravelPlan(String area, String category, String text) {
-            List<TouristPlace> places = touristPlaceMapper.findRandomByAreaAndCategory(area, category, 5);
-            List<Store> stores = storeMapper.findRandom(20);
+    // ====== 조건 추출용 키워드/정규식 ======
+    private static final Map<String, String> AREA_MAP = Map.ofEntries(
+            Map.entry("바다", "바다"), Map.entry("바닷가", "바다"), Map.entry("해변", "바다"), Map.entry("바다가 보이는", "바다"),
+            Map.entry("내륙", "내륙"), Map.entry("산", "내륙"), Map.entry("계곡", "내륙"), Map.entry("숲", "내륙"), Map.entry("도시", "내륙")
+    );
 
-            StringBuilder prompt = new StringBuilder();
-            prompt.append("서산에서 ").append(area).append(" 지역의 '").append(category)
-                    .append("' 카테고리에 맞는 당일치기 여행 코스를 추천해줘.\n")
-                    .append("다음은 관광지와 가게 목록이야:\n\n")
-                    .append("[관광지]\n");
+    private static final Set<String> THEME_KEYWORDS = Set.of(
+            "감성", "감성적", "감성적인", "힐링", "먹방", "인생샷",
+            "역사", "문화", "생태", "자연", "체험", "가벼운 당일치기",
+            "친구", "가족", "지역화폐", "로맨틱", "포토스팟", "바쁜", "정신없는"
+    );
 
-            for (TouristPlace place : places) {
-                prompt.append("- ").append(place.getName())
-                        .append(" (").append(place.getCategory()).append(", ").append(place.getArea()).append(")\n");
+    private static final List<String> COMPANION_KEYWORDS = List.of(
+            "엄마", "아빠", "부모님", "형", "누나", "언니", "오빠", "동생",
+            "가족", "친구", "연인", "커플", "아이", "혼자", "솔로", "이모", "고모", "할머니", "할아버지"
+    );
+
+    private static final Pattern DURATION_PATTERN =
+            Pattern.compile("(\\d+)박\\s*(\\d+)일|당일치기|당일|하루|주말|1박2일|2박3일|3박4일");
+
+    /**
+     * 사용자 문장에서 조건 추출 (AI 프롬프트용)
+     */
+    public TravelConditions extractConditions(String sentence) {
+        if (sentence == null) sentence = "";
+        String normalized = sentence.replaceAll("\\s+", " ").trim();
+
+        String companion = COMPANION_KEYWORDS.stream()
+                .filter(normalized::contains)
+                .findFirst().orElse(null);
+
+        String duration = null;
+        Matcher m = DURATION_PATTERN.matcher(normalized.replaceAll("\\s+", ""));
+        if (m.find()) {
+            duration = m.group();
+            if ("당일".equals(duration)) duration = "당일치기";
+            if (duration.matches("\\d+박\\d+일")) {
+                duration = duration.replace("박", "박 ").replace("일", "일");
             }
+        }
 
-            prompt.append("\n[가게]\n");
-            for (Store store : stores) {
-                prompt.append("- ").append(store.getName())
-                        .append(" (").append(store.getType()).append(", ").append(store.getLocation()).append(")\n");
+        String area = null;
+        for (Map.Entry<String, String> e : AREA_MAP.entrySet()) {
+            if (normalized.contains(e.getKey())) {
+                area = e.getValue();
+                break;
             }
+        }
 
-            prompt.append("\n위 장소 중 관광지 3곳과 가게 2곳을 뽑아 관광지-가게-관광지-관광지-가게 순서로 추천해줘. 장소는 앞 장소에서 가까운 곳으로 골라줘.\n");
-            if (text != null && !text.isBlank()) {
-                prompt.append("사용자 요청 조건: ").append(text).append("\n");
-                prompt.append("관광지와 가게 추천 시 text 고려해줘 .text 꼭 포함해줘. 그리고 설명을 달아줘. 친구는 같은 나이로, 보통 동성이며, 우정을 갖는다\n");
-                prompt.append("형은 같은 혈육으로, 본인보다 먼저 태어난 같은 부모를 가진 사람을 말한다.");
-                prompt.append("가족은 형, 누나, 아빠, 엄마, 할머니, 할아버지, 동생 등이 있고 연결, 책임 , 안정, 조건 없는 소속감을 공유한다.");
-                prompt.append("설명은 감성적으로, 따뜻하게 써줘.\n");
+        String theme = THEME_KEYWORDS.stream()
+                .filter(normalized::contains)
+                .findFirst().orElse(null);
+        if (theme != null && theme.startsWith("감성")) theme = "감성적인";
 
-            }
+        if (duration == null) duration = "당일치기";
 
-            prompt.append("\n설명 없이 순수 JSON만 응답해줘:\n")
-                    .append("{\n")
-                    .append("  \"summary\": \"여행 요약\",\n")
-                    .append("  \"course\": [\n")
-                    .append("    {\"order\": 1, \"type\": \"관광지\", \"name\": \"간월암\", \"description\": \"자세한 설명\"},\n")
-                    .append("    {\"order\": 2, \"type\": \"가게\", \"name\": \"양평해장국\", \"description\": \"자세한 설명 \"}\n")
-                    .append("  ]\n")
-                    .append("}")
-                    .append("description은 자세히 작성해줘")
-                    .append("summary를 장소들의 특징을 담아 상세히 써주되, 한문장으로 표현해줘. 감성적인 문장으로 넣어주고 16자 내로 해줘, 예를 들어, '시간이 멈춘 골목에서 첫걸을을 떼다' 이런식으로 만들어줘");
-    //
+        return TravelConditions.builder()
+                .companion(companion)
+                .theme(theme)
+                .duration(duration)
+                .area(area)
+                .build();
+    }
+
+    @Override
+    public List<TravelPlanResponse> generateMultiplePlans(String text, String areaParam, String categoryParam) {
+        // 1) 사용자 문장에서 조건 추출 (AI 프롬프트용)
+        TravelConditions cond = extractConditions(text);
+        String areaForAI = cond.getArea() != null ? cond.getArea() : areaParam;
+        String themeForAI = cond.getTheme() != null ? cond.getTheme() : "힐링";
+        String companionForAI = cond.getCompanion() != null ? cond.getCompanion() : "미정";
+        String durationForAI = cond.getDuration() != null ? cond.getDuration() : "당일치기";
+
+        int limit = 15;
+
+        // 2) DB에서 areaParam, categoryParam으로 필터
+        List<TouristPlace> places = touristPlaceMapper.findRandomByAreaAndCategory(areaParam, categoryParam, limit);
+        List<Store> stores = storeMapper.findRandom(limit);
+
+        if (places.isEmpty() || stores.isEmpty()) {
+            log.warn("DB에서 가져온 데이터가 부족합니다. places={}, stores={}", places.size(), stores.size());
+        }
+
+        // 3) GPT 프롬프트 구성 (반드시 목록에서만 선택하도록 강제)
+        StringBuilder prompt = new StringBuilder();
+        prompt.append("당신은 서산 여행 코디네이터입니다.\n")
+                .append("다음 조건을 참고하여 서로 다른 3개의 여행 코스를 만들어주세요.\n")
+                .append("- 지역: ").append(areaForAI).append("\n")
+                .append("- 테마: ").append(themeForAI).append("\n")
+                .append("- 동행: ").append(companionForAI).append("\n")
+                .append("- 기간: ").append(durationForAI).append("\n")
+                .append("\n")
+                .append("규칙:\n")
+                .append("1. 각 코스는 '관광지-가게-관광지-관광지-가게' 순서의 5개 장소.\n")
+                .append("2. 3개의 코스 간에 같은 장소가 중복되면 안 됩니다.\n")
+                .append("3. 반드시 아래 목록에서만 선택하세요.\n")
+                .append("4 각 코스에는 제목과 감성적인 요약 설명을 붙여주세요.\n")
+                .append("5 각 course.item.description에는 반드시 동행(")
+                .append(companionForAI)
+                .append(")과 테마(")
+                .append(themeForAI)
+                .append(")의 의도가 드러나야 하며, 30자 이상으로 작성해주세요.")
+                .append("6. 'course' 배열의 각 항목은 name, type(관광지/가게), description, order가 있어야 합니다.\n")
+                .append("7. JSON만 출력하세요.\n")
+                .append("\n[관광지 후보]\n");
+
+        for (TouristPlace p : places) {
+            prompt.append("- ").append(p.getName())
+                    .append(" (").append(p.getCategory()).append(", ").append(p.getArea()).append(")\n");
+        }
+
+        prompt.append("\n[가게 후보]\n");
+        for (Store s : stores) {
+            String tag = (s.getTag() != null && !s.getTag().isBlank()) ? s.getTag() : "일반";
+            prompt.append("- ").append(s.getName()).append(" (").append(tag).append(")\n");
+        }
+
+        prompt.append("\n출력 예시:\n")
+                .append("{ \"plans\": [\n")
+                .append("  {\n")
+                .append("    \"summary\": \"코스 설명\",\n")
+                .append("    \"course\": [\n")
+                .append("      {\"order\": 1, \"type\": \"관광지\", \"name\": \"장소명\", \"description\": \"간단 설명\"}\n")
+                .append("    ]\n")
+                .append("  }\n")
+                .append("] }\n")
+                .append("description은 30자 이상으로 자세히 작성해줘, 테마, 동행을 사용해서 해줘, 예를 들면 '노을 지는 바다를 배경으로 우럭등대를 바라보며, 동생과 함께 궁금한 이야기를 나누고 마음을 열어보세요. 이렇게 해줘")
+                .append("summary를 장소들의 특징을 담아 상세히 써주되, 한문장으로 표현해줘. 감성적인 문장으로 넣어주고 16자 내로 해줘, 예를 들어, '시간이 멈춘 골목에서 첫걸을을 떼다' 이런식으로 만들어줘");
 
 
-            // OpenAI 요청
+        // 4) GPT 호출
+        return callOpenAiAndParsePlans(prompt.toString(), places, stores);
+    }
+
+    private String buildPrompt(String area, String theme, String companion, String duration,
+                               List<TouristPlace> places, List<Store> stores) {
+        StringBuilder prompt = new StringBuilder();
+        prompt.append("서산에서 다음 조건에 맞는 서로 다른 3개의 여행 코스를 만들어줘.\n")
+                .append("- 지역: ").append(area).append("\n")
+                .append("- 테마: ").append(theme).append("\n")
+                .append("- 동행: ").append(companion).append("\n")
+                .append("- 기간: ").append(duration).append("\n")
+                .append("각 코스는 '관광지-가게-관광지-관광지-가게' 순서로 총 5개 장소.\n")
+                .append("3개의 코스 간에 장소가 중복되면 안 돼.\n")
+                .append("아래 목록에 있는 이름만 사용.\n")
+                .append("설명은 감성적이고 따뜻하게 작성.\n");
+
+        prompt.append("\n[관광지 후보]\n");
+        for (TouristPlace p : places) {
+            prompt.append("- ").append(p.getName())
+                    .append(" (").append(p.getCategory()).append(", ").append(p.getArea()).append(")\n");
+        }
+
+        prompt.append("\n[가게 후보]\n");
+        for (Store s : stores) {
+            String tag = (s.getTag() != null && !s.getTag().isBlank()) ? s.getTag() : "일반";
+            prompt.append("- ").append(s.getName()).append(" (").append(tag).append(")\n");
+        }
+
+        prompt.append("\n\"반드시 JSON 객체 배열로 출력하고, 문자열로 감싸지 말 것\"\n")
+                .append("{ \"plans\": [ { \"summary\": \"...\", \"course\": [ ... ] }, { ... }, { ... } ] }\n");
+
+        return prompt.toString();
+    }
+
+    private List<TravelPlanResponse> callOpenAiAndParsePlans(String prompt,
+                                                             List<TouristPlace> places,
+                                                             List<Store> stores) {
+        List<TravelPlanResponse> results = new ArrayList<>();
+
+        try {
             Map<String, Object> requestBody = Map.of(
                     "model", "gpt-4o-mini",
                     "messages", List.of(
                             Map.of("role", "system", "content", "당신은 여행 코디네이터입니다."),
-                            Map.of("role", "user", "content", prompt.toString())
+                            Map.of("role", "user", "content", prompt)
                     )
             );
 
@@ -91,70 +218,124 @@
             headers.setBearerAuth(apiKey);
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
-            ResponseEntity<Map> response = restTemplate.postForEntity(API_URL, entity, Map.class);
+            ResponseEntity<String> response =
+                    restTemplate.exchange(API_URL, HttpMethod.POST, entity, String.class);
 
             String aiText = "";
-            String summary = "";
-            List<TravelItem> course = List.of();
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                ObjectMapper mapper = new ObjectMapper();
+                Map<String, Object> root = mapper.readValue(response.getBody(), Map.class);
+                List<Map<String, Object>> choices = (List<Map<String, Object>>) root.get("choices");
+                if (choices != null && !choices.isEmpty()) {
+                    Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
+                    aiText = (String) message.get("content");
+                }
+            }
 
-            try {
-                if (response.getBody() != null && response.getBody().containsKey("choices")) {
-                    Map<String, Object> message = (Map<String, Object>) ((List<?>) response.getBody().get("choices")).get(0);
-                    Map<String, Object> contentMap = (Map<String, Object>) message.get("message");
-                    aiText = (String) contentMap.get("content");
+            if (aiText != null && !aiText.isBlank()) {
+                int start = aiText.indexOf("{");
+                int end = aiText.lastIndexOf("}");
+                if (start >= 0 && end > start) {
+                    String jsonPart = aiText.substring(start, end + 1);
+                    ObjectMapper mapper = new ObjectMapper();
+                    Map<String, Object> parsed = mapper.readValue(jsonPart, Map.class);
 
-                    int start = aiText.indexOf("{");
-                    int end = aiText.lastIndexOf("}");
-                    if (start >= 0 && end > start) {
-                        String jsonPart = aiText.substring(start, end + 1);
-                        ObjectMapper mapper = new ObjectMapper();
-                        Map<String, Object> parsed = mapper.readValue(jsonPart, Map.class);
+                    List<?> rawPlans = (List<?>) parsed.get("plans");
+                    if (rawPlans != null) {
+                        Set<String> usedNames = new HashSet<>();
 
-                        summary = (String) parsed.get("summary");
-                        List<Map<String, Object>> aiCourse = (List<Map<String, Object>>) parsed.get("course");
+                        for (Object obj : rawPlans) {
+                            Map<String, Object> plan;
 
-                        course = aiCourse.stream().map(item -> {
-                            int order = (Integer) item.get("order");
-                            String type = (String) item.get("type");
-                            String name = (String) item.get("name");
-                            String description = (String) item.get("description");
-
-                            if ("관광지".equals(type)) {
-                                TouristPlace match = places.stream()
-                                        .filter(p -> p.getName().equals(name)).findFirst().orElse(null);
-                                if (match != null) {
-                                    return new TravelItem(order, match.getId(), type, name, description,
-                                            match.getAddress(), match.getLatitude(), match.getLongitude(), match.getImageUrl(),null);
+                            // 안전하게 변환 (Map 또는 String 모두 처리)
+                            if (obj instanceof Map) {
+                                plan = (Map<String, Object>) obj;
+                            } else if (obj instanceof String) {
+                                try {
+                                    plan = mapper.readValue((String) obj, Map.class);
+                                } catch (Exception e) {
+                                    log.warn("plan 문자열 파싱 실패: {}", obj);
+                                    continue;
                                 }
-                            } else if ("가게".equals(type)) {
-                                Store match = stores.stream()
-                                        .filter(s -> s.getName().equals(name)).findFirst().orElse(null);
-                                if (match != null) {
-                                    return new TravelItem(order, match.getId(), type, name, description,
-                                            match.getAddress(), match.getLatitude(), match.getLongitude(), null, match.getTag());
+                            } else {
+                                log.warn("알 수 없는 plan 형식: {}", obj);
+                                continue;
+                            }
+
+                            String summary = (String) plan.getOrDefault("summary", "");
+                            List<?> aiCourseRaw = (List<?>) plan.get("course");
+
+                            List<Map<String, Object>> aiCourse = new ArrayList<>();
+                            if (aiCourseRaw != null) {
+                                for (Object c : aiCourseRaw) {
+                                    if (c instanceof Map) {
+                                        aiCourse.add((Map<String, Object>) c);
+                                    } else if (c instanceof String) {
+                                        try {
+                                            aiCourse.add(mapper.readValue((String) c, Map.class));
+                                        } catch (Exception e) {
+                                            log.warn("course 문자열 파싱 실패: {}", c);
+                                        }
+                                    }
                                 }
                             }
-                            return null;
-                        }).filter(item -> item != null).collect(Collectors.toList());
+
+                            // 중복 제거
+                            List<Map<String, Object>> filteredCourse = aiCourse.stream()
+                                    .filter(item -> {
+                                        String name = (String) item.get("name");
+                                        if (usedNames.contains(name)) return false;
+                                        usedNames.add(name);
+                                        return true;
+                                    }).collect(Collectors.toList());
+
+                            // 매칭
+                            List<TravelItem> courseItems = mapToCourseItems(filteredCourse, places, stores);
+                            results.add(new TravelPlanResponse(summary, courseItems));
+                        }
                     }
                 }
-            } catch (Exception e) {
-                e.printStackTrace();
-                summary = "AI 응답 파싱 중 오류 발생";
-                course = List.of();
             }
-
-            return new TravelPlanResponse(summary, course);
+        } catch (Exception e) {
+            log.error("OpenAI 호출/파싱 오류", e);
         }
 
-        @Override
-        public List<TravelPlanResponse> generateMultiplePlans(String area, String category, String text) {
-            List<TravelPlanResponse> plans = new ArrayList<>();
-            for (int i = 0; i < 3; i++) {
-                TravelPlanResponse singlePlan = generateTravelPlan(area, category, text);
-                plans.add(singlePlan);
-            }
-            return plans;
-        }
-
+        return results;
     }
+
+    private List<TravelItem> mapToCourseItems(List<Map<String, Object>> aiCourse,
+                                              List<TouristPlace> places,
+                                              List<Store> stores) {
+        if (aiCourse == null) return List.of();
+
+        return aiCourse.stream().map(item -> {
+            try {
+                int order = (Integer) item.get("order");
+                String type = (String) item.get("type");
+                String name = (String) item.get("name");
+                String description = (String) item.get("description");
+
+                if ("관광지".equals(type)) {
+                    TouristPlace match = places.stream()
+                            .filter(p -> p.getName().equals(name))
+                            .findFirst().orElse(null);
+                    if (match != null) {
+                        return new TravelItem(order, match.getId(), type, name, description,
+                                match.getAddress(), match.getLatitude(), match.getLongitude(),
+                                match.getImageUrl(), null);
+                    }
+                } else if ("가게".equals(type)) {
+                    Store match = stores.stream()
+                            .filter(s -> s.getName().equals(name))
+                            .findFirst().orElse(null);
+                    if (match != null) {
+                        return new TravelItem(order, match.getId(), type, name, description,
+                                match.getAddress(), match.getLatitude(), match.getLongitude(),
+                                null, match.getTag());
+                    }
+                }
+            } catch (Exception ignore) {}
+            return null;
+        }).filter(Objects::nonNull).collect(Collectors.toList());
+    }
+}
