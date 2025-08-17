@@ -221,7 +221,7 @@ public class AIServiceImpl implements AiService {
                 .append("1. 각 코스는 '관광지-가게-관광지-관광지-가게' 순서의 5개 장소.\n")
                 .append("2. 5개의 코스는 무조건 다 있어야 해요. 장소가 없다면 중복돼도 되니까 무조건 5개의 코스를 다 제공해줘요.\n")
                 .append("3. 3개의 코스에 가능하면 중복되지 않게 하며, 장소가 부족할 경우에만 중복을 허용합니다.\n")
-                .append("4. 식당도 반드시 2개를 보장해줘요\n")
+                .append("4. 가게는 반드시 2개를 보장해주고, 관광지는 반드시 3개를 보장해주세요\n")
                 .append("5. 각 코스에는 제목과 감성적인 요약 설명을 붙여주세요.\n")
                 .append("6. 각 course.item.description에는 반드시 동행(")
                 .append(companionForAI)
