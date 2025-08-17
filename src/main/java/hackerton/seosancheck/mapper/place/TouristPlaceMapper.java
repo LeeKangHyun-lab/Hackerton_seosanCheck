@@ -8,12 +8,6 @@ import java.util.List;
 @Mapper
 public interface TouristPlaceMapper {
 
-//    @Insert("INSERT INTO tourist_place " +
-//            "(name, address, latitude, longitude, description, reference_date, area, category, image_url, type) " +
-//            "VALUES (#{name}, #{address}, #{latitude}, #{longitude}, #{description}, #{referenceDate}, #{area}, #{category}, #{imageUrl}, #{type})")
-//    @Options(useGeneratedKeys = true, keyProperty = "id")
-//    int insert(TouristPlace place);
-
     @Insert({
             "<script>",
             "INSERT INTO tourist_place (name, address, latitude, longitude, description, reference_date, area, category, image_url) VALUES",
@@ -42,7 +36,6 @@ public interface TouristPlaceMapper {
 //            "ORDER BY RAND() " +
 //            "LIMIT #{limit}")
 //    List<TouristPlace> findRandomByAreaAndCategory(@Param("area") String area,
-//                                                   @Param("category") String category,
 //                                                   @Param("limit") int limit);
 
 
@@ -60,5 +53,5 @@ public interface TouristPlaceMapper {
                                                    @Param("category") String category,
                                                    @Param("limit") int limit);
 
-//      AND category ILIKE ('%' || #{category} || '%')
+
 }
