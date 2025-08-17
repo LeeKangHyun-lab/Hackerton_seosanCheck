@@ -13,5 +13,5 @@ public interface AiService {
 
     TravelConditions extractConditions(String sentence);
 
-    List<TravelPlanResponse> generateMultiplePlans(String text, String areaParam, String categoryParam);
+    List<TravelPlanResponse> generateMultiplePlans(String text, String areaParam);
 }
