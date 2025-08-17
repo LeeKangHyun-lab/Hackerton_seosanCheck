@@ -63,7 +63,7 @@ public interface StoreMapper {
 //                                 @Param("radiusKm") double radiusKm,
 //                                 @Param("limit") int limit);
 
-    //Postgre
+    //PostgreSQL
     // 전체 랜덤 조회 (PostgreSQL: RANDOM)
     @Select("""
         SELECT id, name, address, detail_address AS detailAddress,
