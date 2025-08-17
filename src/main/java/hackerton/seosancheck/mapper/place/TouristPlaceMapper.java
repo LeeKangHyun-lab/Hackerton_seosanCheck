@@ -50,7 +50,6 @@ public interface TouristPlaceMapper {
     LIMIT #{limit}
     """)
     List<TouristPlace> findRandomByAreaAndCategory(@Param("area") String area,
-                                                   @Param("category") String category,
                                                    @Param("limit") int limit);
 
 
