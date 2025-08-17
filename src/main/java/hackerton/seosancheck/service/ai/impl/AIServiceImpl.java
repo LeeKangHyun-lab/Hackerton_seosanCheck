@@ -160,43 +160,12 @@ public class AIServiceImpl implements AiService {
                 .append("    ]\n")
                 .append("  }\n")
                 .append("] }\n")
-                .append("description은 30자 이상으로 자세히 작성해줘, 테마, 동행을 사용해서 해줘, 예를 들면 '노을 지는 바다를 배경으로 우럭등대를 바라보며, 동생과 함께 궁금한 이야기를 나누고 마음을 열어보세요. 이렇게 해줘")
+                .append("description은 30자 이상으로 자세히 작성해줘, 테마, 동행을 사용해서 해줘, 그리고 문장에 '최지인'이라는 단어를 꼭 넣어줘 예를 들면 '노을 지는 바다를 배경으로 우럭등대를 바라보며, 동생과 함께 궁금한 이야기를 나누고 마음을 열어보세요. 이렇게 해줘")
                 .append("summary를 장소들의 특징을 담아 상세히 써주되, 한문장으로 표현해줘. 감성적인 문장으로 넣어주고 16자 내로 해줘, 예를 들어, '시간이 멈춘 골목에서 첫걸을을 떼다' 이런식으로 만들어줘");
 
 
         // 4) GPT 호출
         return callOpenAiAndParsePlans(prompt.toString(), places, stores);
-    }
-
-    private String buildPrompt(String area, String theme, String companion, String duration,
-                               List<TouristPlace> places, List<Store> stores) {
-        StringBuilder prompt = new StringBuilder();
-        prompt.append("서산에서 다음 조건에 맞는 서로 다른 3개의 여행 코스를 만들어줘.\n")
-                .append("- 지역: ").append(area).append("\n")
-                .append("- 테마: ").append(theme).append("\n")
-                .append("- 동행: ").append(companion).append("\n")
-                .append("- 기간: ").append(duration).append("\n")
-                .append("각 코스는 '관광지-가게-관광지-관광지-가게' 순서로 총 5개 장소.\n")
-                .append("3개의 코스 간에 장소가 중복되면 안 돼.\n")
-                .append("아래 목록에 있는 이름만 사용.\n")
-                .append("설명은 감성적이고 따뜻하게 작성.\n");
-
-        prompt.append("\n[관광지 후보]\n");
-        for (TouristPlace p : places) {
-            prompt.append("- ").append(p.getName())
-                    .append(" (").append(p.getCategory()).append(", ").append(p.getArea()).append(")\n");
-        }
-
-        prompt.append("\n[가게 후보]\n");
-        for (Store s : stores) {
-            String tag = (s.getTag() != null && !s.getTag().isBlank()) ? s.getTag() : "일반";
-            prompt.append("- ").append(s.getName()).append(" (").append(tag).append(")\n");
-        }
-
-        prompt.append("\n\"반드시 JSON 객체 배열로 출력하고, 문자열로 감싸지 말 것\"\n")
-                .append("{ \"plans\": [ { \"summary\": \"...\", \"course\": [ ... ] }, { ... }, { ... } ] }\n");
-
-        return prompt.toString();
     }
 
     private List<TravelPlanResponse> callOpenAiAndParsePlans(String prompt,
