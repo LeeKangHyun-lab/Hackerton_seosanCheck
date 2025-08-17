@@ -39,33 +39,15 @@ public interface TouristPlaceMapper {
     // 특정 지역·카테고리에서 랜덤으로 n개
 //    @Select("SELECT * FROM tourist_place " +
 //            "WHERE area LIKE CONCAT('%', #{area}, '%') " +
-////            "AND category LIKE CONCAT('%', #{category}, '%') " +
 //            "ORDER BY RAND() " +
 //            "LIMIT #{limit}")
 //    List<TouristPlace> findRandomByAreaAndCategory(@Param("area") String area,
 //                                                   @Param("category") String category,
 //                                                   @Param("limit") int limit);
 
-    // 중심 좌표 반경 내 랜덤 조회 (단위: km)
-//    @Select("""
-//    SELECT *,
-//           (6371 * ACOS(
-//               COS(RADIANS(#{lat})) * COS(RADIANS(latitude)) *
-//               COS(RADIANS(longitude) - RADIANS(#{lng})) +
-//               SIN(RADIANS(#{lat})) * SIN(RADIANS(latitude))
-//           )) AS distance
-//    FROM tourist_place
-//    HAVING distance <= #{radiusKm}
-//    ORDER BY RAND()
-//    LIMIT #{limit}
-//""")
-//    List<TouristPlace> findNearbyRandom(@Param("lat") double latitude,
-//                                        @Param("lng") double longitude,
-//                                        @Param("radiusKm") double radiusKm,
-//                                        @Param("limit") int limit);
 
     //PostgreSQL
-    // 지역·카테고리 랜덤 n개
+//     지역·카테고리 랜덤 n개
     @Select("""
     SELECT id, name, address, latitude, longitude, description,
            reference_date AS referenceDate, area, category, image_url AS imageUrl
