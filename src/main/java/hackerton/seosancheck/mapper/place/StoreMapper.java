@@ -41,7 +41,7 @@ public interface StoreMapper {
 
 
     //MySQL
-//    // 전체 랜덤 조회
+    // 전체 랜덤 조회
 //    @Select("SELECT * FROM store ORDER BY RAND() LIMIT #{limit}")
 //    List<Store> findRandom(@Param("limit") int limit);
 //
@@ -75,23 +75,23 @@ public interface StoreMapper {
     List<Store> findRandom(@Param("limit") int limit);
 
     // 중심 좌표 반경 내 랜덤 조회 (km) — 별칭 필터링은 서브쿼리로
-    @Select("""
-        SELECT *
-        FROM (
-            SELECT s.*,
-                   (6371 * ACOS(
-                       COS(RADIANS(#{lat})) * COS(RADIANS(latitude)) *
-                       COS(RADIANS(longitude) - RADIANS(#{lng})) +
-                       SIN(RADIANS(#{lat})) * SIN(RADIANS(latitude))
-                   )) AS distance
-            FROM store s
-        ) t
-        WHERE t.distance <= #{radiusKm}
-        ORDER BY RANDOM()
-        LIMIT #{limit}
-        """)
-    List<Store> findNearbyRandom(@Param("lat") double latitude,
-                                 @Param("lng") double longitude,
-                                 @Param("radiusKm") double radiusKm,
-                                 @Param("limit") int limit);
+//    @Select("""
+//        SELECT *
+//        FROM (
+//            SELECT s.*,
+//                   (6371 * ACOS(
+//                       COS(RADIANS(#{lat})) * COS(RADIANS(latitude)) *
+//                       COS(RADIANS(longitude) - RADIANS(#{lng})) +
+//                       SIN(RADIANS(#{lat})) * SIN(RADIANS(latitude))
+//                   )) AS distance
+//            FROM store s
+//        ) t
+//        WHERE t.distance <= #{radiusKm}
+//        ORDER BY RANDOM()
+//        LIMIT #{limit}
+//        """)
+//    List<Store> findNearbyRandom(@Param("lat") double latitude,
+//                                 @Param("lng") double longitude,
+//                                 @Param("radiusKm") double radiusKm,
+//                                 @Param("limit") int limit);
 }
