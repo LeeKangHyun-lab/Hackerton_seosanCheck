@@ -1,0 +1,64 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.5.4'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'Hackerton'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Spring Boot 기본
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-jdbc'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:3.0.4'
+
+
+    // DB 드라이버 (둘 중 하나만 사용)
+    runtimeOnly 'com.mysql:mysql-connector-j'
+    implementation 'org.postgresql:postgresql:42.6.0'
+
+    // 유틸
+    implementation 'com.github.ua-parser:uap-java:1.6.1'
+    implementation 'org.bgee.log4jdbc-log4j2:log4jdbc-log4j2-jdbc4.1:1.16'
+    implementation 'net.coobird:thumbnailator:0.4.20'
+    implementation 'org.apache.poi:poi:5.2.3'
+    implementation('org.apache.poi:poi-ooxml:5.2.3') {
+        exclude group: 'org.apache.httpcomponents', module: 'httpclient' // 4.x 버전 제외
+    }
+
+    // HttpClient 5.x (Spring Boot 3.5.x 호환)
+    implementation 'org.apache.httpcomponents.client5:httpclient5'
+    implementation 'org.apache.httpcomponents.core5:httpcore5'
+    implementation 'org.apache.httpcomponents.core5:httpcore5-h2'
+
+    // Lombok
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    // 개발용
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+
+    // 테스트 라이브러리
+    // testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    // testImplementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter-test:3.0.4'
+    // testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+

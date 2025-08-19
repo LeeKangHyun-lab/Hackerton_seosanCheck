@@ -1,0 +1,33 @@
+server:
+  port: ${PORT:8080}
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASS}
+    driver-class-name: org.postgresql.Driver
+
+  session:
+    store-type: jdbc
+    jdbc:
+      initialize-schema: never
+
+mybatis:
+  configuration:
+    map-underscore-to-camel-case: true
+
+logging:
+  level:
+    org.mybatis: DEBUG
+    hackerton.seosancheck.mapper: DEBUG
+
+
+openai:
+  api-key: ${OPENAI_API_KEY}
+
