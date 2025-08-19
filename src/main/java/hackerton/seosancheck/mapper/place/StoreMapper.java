@@ -80,19 +80,22 @@ public interface StoreMapper {
     // 식당 근처 조회
     @Select("""
     SELECT id, name, address, detail_address AS detailAddress,
-           location, type, longitude, latitude, kind_store AS kindStore, tag
+           location, type, longitude, latitude, kind_store AS kindStore, tag,
+           (6371 * acos(
+               cos(radians(#{lat})) * cos(radians(latitude)) *
+               cos(radians(longitude) - radians(#{lon})) +
+               sin(radians(#{lat})) * sin(radians(latitude))
+           )) AS distance
     FROM store
-    WHERE ST_DistanceSphere(
-              ST_MakePoint(longitude, latitude),
-              ST_MakePoint(#{lon}, #{lat})
-          ) <= #{radiusMeters}
-      AND (tag ILIKE '%식%' OR tag ILIKE '%집%' OR kind_store ILIKE '%해산물%')
+    WHERE (tag ILIKE '%식%' OR tag ILIKE '%집%' OR kind_store ILIKE '%해산물%')
+    HAVING distance < #{radiusKm}
     ORDER BY RANDOM()
     LIMIT #{limit}
     """)
     List<Store> findNearbyStores(
             @Param("lat") double latitude,
             @Param("lon") double longitude,
-            @Param("radiusMeters") int radiusMeters,
+            @Param("radiusKm") double radiusKm,
             @Param("limit") int limit);
+
 }
