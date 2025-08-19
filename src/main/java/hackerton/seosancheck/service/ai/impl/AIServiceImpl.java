@@ -208,8 +208,8 @@ public class AIServiceImpl implements AiService {
         double centerLon = start.getLongitude();
 
 //      3) 기준 좌표 반경 5km 내 관광지 + 식당 조회
-        List<TouristPlace> places = touristPlaceMapper.findNearbyPlaces(centerLat, centerLon, 5000, limit);
-        List<Store> stores = storeMapper.findNearbyStores(centerLat, centerLon, 5000, limit);
+        List<TouristPlace> places = touristPlaceMapper.findNearbyPlaces(centerLat, centerLon, 5, limit);
+        List<Store> stores = storeMapper.findNearbyStores(centerLat, centerLon, 5, limit);
 
         if (places.isEmpty() || stores.isEmpty()) {
             log.warn("DB에서 가져온 데이터가 부족합니다. places={}, stores={}", places.size(), stores.size());
