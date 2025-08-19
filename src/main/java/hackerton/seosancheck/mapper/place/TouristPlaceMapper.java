@@ -78,19 +78,26 @@ public interface TouristPlaceMapper {
 //    PostgreSQL
     //관광지 근처 조회
     @Select("""
-    SELECT id, name, address, latitude, longitude, description, reference_date AS referenceDate,
-           area, category, image_url AS imageUrl
-    FROM tourist_place
-    WHERE ST_DistanceSphere(
-              ST_MakePoint(longitude, latitude),
-              ST_MakePoint(#{lon}, #{lat})
-          ) <= #{radiusMeters}
-    ORDER BY RANDOM()
-    LIMIT #{limit}
-    """)
+        SELECT *
+        FROM (
+            SELECT id, name, address, latitude, longitude, description, reference_date AS referenceDate,
+                   area, category, image_url AS imageUrl,
+                   (6371 * acos(
+                       cos(radians(#{lat})) * cos(radians(latitude)) *
+                       cos(radians(longitude) - radians(#{lon})) +
+                       sin(radians(#{lat})) * sin(radians(latitude))
+                   )) AS distance
+            FROM tourist_place
+        ) sub
+        WHERE sub.distance < #{radiusKm}
+        ORDER BY RANDOM()
+        LIMIT #{limit}
+        """)
     List<TouristPlace> findNearbyPlaces(
             @Param("lat") double latitude,
             @Param("lon") double longitude,
-            @Param("radiusMeters") int radiusMeters,
+            @Param("radiusKm") double radiusKm,   // km 단위
             @Param("limit") int limit);
+
+
 }

@@ -21,11 +21,12 @@ public class WebConfig {
                                 "https://hackerton-seosanbook.onrender.com",
                                 "https://seosancheck.web.app"
                         )
-                        .allowedMethods("GET", "POST", "PUT", "DELETE")
+                        .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                         .allowedHeaders("*");
             }
         };
     }
+
     @Bean
     public RestTemplate restTemplate() {
         return new RestTemplate();
