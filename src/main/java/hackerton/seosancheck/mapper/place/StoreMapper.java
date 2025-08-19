@@ -39,59 +39,60 @@ public interface StoreMapper {
     @Delete("DELETE FROM store")
     int deleteAll();
 
-
-    //MySQL
-    // 전체 랜덤 조회
+//    // MySQL: 전체 랜덤 조회
 //    @Select("SELECT * FROM store ORDER BY RAND() LIMIT #{limit}")
 //    List<Store> findRandom(@Param("limit") int limit);
-//
-//    // 중심 좌표 반경 내 랜덤 조회 (단위: km)
+
+//      PostgreSQL 랜덤 조회 (참고용)
+    // @Select("""
+    //     SELECT id, name, address, detail_address AS detailAddress,
+    //            location, type, longitude, latitude, kind_store AS kindStore, tag
+    //     FROM store
+    //     ORDER BY RANDOM()
+    //     LIMIT #{limit}
+    //     """)
+    // List<Store> findRandom(@Param("limit") int limit);
+
+    //MySQL
+    // 식당 근처 조회
 //    @Select("""
-//        SELECT *,
-//               (6371 * ACOS(
-//                   COS(RADIANS(#{lat})) * COS(RADIANS(latitude)) *
-//                   COS(RADIANS(longitude) - RADIANS(#{lng})) +
-//                   SIN(RADIANS(#{lat})) * SIN(RADIANS(latitude))
-//               )) AS distance
-//        FROM store
-//        HAVING distance <= #{radiusKm}
-//        ORDER BY RAND()
-//        LIMIT #{limit}
+//    SELECT id, name, address, detail_address AS detailAddress,
+//           location, type, longitude, latitude, kind_store AS kindStore, tag,
+//           (6371 * acos(
+//               cos(radians(#{lat})) * cos(radians(latitude)) *
+//               cos(radians(longitude) - radians(#{lon})) +
+//               sin(radians(#{lat})) * sin(radians(latitude))
+//           )) AS distance
+//    FROM store
+//    WHERE (tag LIKE '%식%' OR tag LIKE '%집%' OR kind_store LIKE '%해산물%')
+//    HAVING distance < #{radiusKm}
+//    ORDER BY RAND()
+//    LIMIT #{limit}
 //    """)
-//    List<Store> findNearbyRandom(@Param("lat") double latitude,
-//                                 @Param("lng") double longitude,
-//                                 @Param("radiusKm") double radiusKm,
-//                                 @Param("limit") int limit);
+//    List<Store> findNearbyStores(
+//            @Param("lat") double latitude,
+//            @Param("lon") double longitude,
+//            @Param("radiusKm") double radiusKm,
+//            @Param("limit") int limit);
+
 
     //PostgreSQL
-    // 전체 랜덤 조회 (PostgreSQL: RANDOM)
+    // 식당 근처 조회
     @Select("""
-        SELECT id, name, address, detail_address AS detailAddress,
-               location, type, longitude, latitude, kind_store AS kindStore, tag
-        FROM store
-        ORDER BY RANDOM()
-        LIMIT #{limit}
-        """)
-    List<Store> findRandom(@Param("limit") int limit);
-
-    // 중심 좌표 반경 내 랜덤 조회 (km) — 별칭 필터링은 서브쿼리로
-//    @Select("""
-//        SELECT *
-//        FROM (
-//            SELECT s.*,
-//                   (6371 * ACOS(
-//                       COS(RADIANS(#{lat})) * COS(RADIANS(latitude)) *
-//                       COS(RADIANS(longitude) - RADIANS(#{lng})) +
-//                       SIN(RADIANS(#{lat})) * SIN(RADIANS(latitude))
-//                   )) AS distance
-//            FROM store s
-//        ) t
-//        WHERE t.distance <= #{radiusKm}
-//        ORDER BY RANDOM()
-//        LIMIT #{limit}
-//        """)
-//    List<Store> findNearbyRandom(@Param("lat") double latitude,
-//                                 @Param("lng") double longitude,
-//                                 @Param("radiusKm") double radiusKm,
-//                                 @Param("limit") int limit);
+    SELECT id, name, address, detail_address AS detailAddress,
+           location, type, longitude, latitude, kind_store AS kindStore, tag
+    FROM store
+    WHERE ST_DistanceSphere(
+              ST_MakePoint(longitude, latitude),
+              ST_MakePoint(#{lon}, #{lat})
+          ) <= #{radiusMeters}
+      AND (tag ILIKE '%식%' OR tag ILIKE '%집%' OR kind_store ILIKE '%해산물%')
+    ORDER BY RANDOM()
+    LIMIT #{limit}
+    """)
+    List<Store> findNearbyStores(
+            @Param("lat") double latitude,
+            @Param("lon") double longitude,
+            @Param("radiusMeters") int radiusMeters,
+            @Param("limit") int limit);
 }

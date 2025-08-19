@@ -199,12 +199,22 @@ public class AIServiceImpl implements AiService {
         int limit = 15;
 
         // 2) DB 조회
-        List<TouristPlace> places = touristPlaceMapper.findRandomByAreaAndCategory(areaParam, limit);
-        List<Store> stores = storeMapper.findRandom(limit);
+
+//      1) 랜덤으로 관광지 하나 선택 (출발점)
+        TouristPlace start = touristPlaceMapper.findRandomByArea(areaParam, 1).get(0);
+
+//      2) 기준 좌표 설정
+        double centerLat = start.getLatitude();
+        double centerLon = start.getLongitude();
+
+//      3) 기준 좌표 반경 5km 내 관광지 + 식당 조회
+        List<TouristPlace> places = touristPlaceMapper.findNearbyPlaces(centerLat, centerLon, 5000, limit);
+        List<Store> stores = storeMapper.findNearbyStores(centerLat, centerLon, 5000, limit);
 
         if (places.isEmpty() || stores.isEmpty()) {
             log.warn("DB에서 가져온 데이터가 부족합니다. places={}, stores={}", places.size(), stores.size());
         }
+
 
         // 3) GPT 프롬프트 (명확/강제)
         StringBuilder prompt = new StringBuilder();
@@ -218,14 +228,13 @@ public class AIServiceImpl implements AiService {
                 .append("1) 각 코스는 정확히 5개의 '장소'로만 구성합니다.\n")
                 .append("2) 순서는 반드시: 관광지 → 가게(식당) → 관광지 → 관광지 → 가게(식당).\n")
                 .append("3) 'type' 값은 오직 \"관광지\" 또는 \"가게\"만 사용합니다.\n")
-                .append("4) '가게'는 반드시 '식당(음식점)'만 선택하세요. 카페/쇼핑은 금지입니다.\n")
-                .append("5) 목록에 없는 장소는 사용하지 마세요. 모자라면 목록에서 중복 선택해서라도 5개를 채우세요.\n")
-                .append("6) 각 항목은 name, type(관광지/가게), description(30자 이상), order를 포함합니다.\n")
-                .append("7) JSON만 출력하세요.\n\n")
+                .append("4) 목록에 없는 장소는 사용하지 마세요. 모자라면 목록에서 중복 선택해서라도 반드시5개를 채우세요.\n")
+                .append("5) 각 항목은 name, type(관광지/가게), description(30자 이상), order를 포함합니다.\n")
+                .append("6) JSON만 출력하세요.\n\n")
                 .append("[관광지 후보]\n");
         for (TouristPlace p : places) {
             prompt.append("- ").append(p.getName())
-                    .append(" (").append(p.getCategory()).append(", ").append(p.getArea()).append(")\n");
+                    .append(" (").append(", ").append(p.getArea()).append(")\n");
         }
         prompt.append("\n[가게 후보]\n");
         for (Store s : stores) {
