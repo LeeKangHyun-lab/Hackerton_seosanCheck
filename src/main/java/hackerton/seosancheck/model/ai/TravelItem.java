@@ -14,8 +14,8 @@ public class TravelItem {
     private String name;
     private String description; // AI가 생성한 간단 설명
     private String address;
-    private double latitude;
-    private double longitude;
+    private Double latitude;
+    private Double longitude;
     private String imageUrl; // 관광지만 있을 수 있음
     private String tag;
 }

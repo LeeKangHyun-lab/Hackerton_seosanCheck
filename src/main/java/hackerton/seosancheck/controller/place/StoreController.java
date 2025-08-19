@@ -27,7 +27,7 @@ public class StoreController {
         return ResponseEntity.ok(service.getAllStores());
     }
 
-    @GetMapping("/{id}")// 단순 id조회라 수정 예정
+    @GetMapping("/{id}")
     public ResponseEntity<Store> getStoreById(@PathVariable Long id) {
         Store store = service.getStoreById(id);
         if (store == null) {

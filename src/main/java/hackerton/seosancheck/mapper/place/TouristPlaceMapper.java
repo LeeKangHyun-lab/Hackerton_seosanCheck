@@ -35,8 +35,10 @@ public interface TouristPlaceMapper {
 //            "WHERE area LIKE CONCAT('%', #{area}, '%') " +
 //            "ORDER BY RAND() " +
 //            "LIMIT #{limit}")
-//    List<TouristPlace> findRandomByAreaAndCategory(@Param("area") String area,
-//                                                   @Param("limit") int limit);
+//    List<TouristPlace> findRandomByArea(@Param("area") String area,
+//                                        @Param("limit") int limit);
+
+
 
 
     //PostgreSQL
@@ -49,8 +51,46 @@ public interface TouristPlaceMapper {
     ORDER BY RANDOM()
     LIMIT #{limit}
     """)
-    List<TouristPlace> findRandomByAreaAndCategory(@Param("area") String area,
-                                                   @Param("limit") int limit);
+    List<TouristPlace> findRandomByArea(@Param("area") String area,
+                                        @Param("limit") int limit);
+
+    //MySQL
+//    @Select("""
+//    SELECT id, name, address, latitude, longitude, description, reference_date AS referenceDate,
+//           area, category, image_url AS imageUrl,
+//           (6371 * acos(
+//               cos(radians(#{lat})) * cos(radians(latitude)) *
+//               cos(radians(longitude) - radians(#{lon})) +
+//               sin(radians(#{lat})) * sin(radians(latitude))
+//           )) AS distance
+//    FROM tourist_place
+//    HAVING distance < #{radiusKm}
+//    ORDER BY RAND()
+//    LIMIT #{limit}
+//    """)
+//    List<TouristPlace> findNearbyPlaces(
+//            @Param("lat") double latitude,
+//            @Param("lon") double longitude,
+//            @Param("radiusKm") double radiusKm,
+//            @Param("limit") int limit);
 
 
+//    PostgreSQL
+    //관광지 근처 조회
+    @Select("""
+    SELECT id, name, address, latitude, longitude, description, reference_date AS referenceDate,
+           area, category, image_url AS imageUrl
+    FROM tourist_place
+    WHERE ST_DistanceSphere(
+              ST_MakePoint(longitude, latitude),
+              ST_MakePoint(#{lon}, #{lat})
+          ) <= #{radiusMeters}
+    ORDER BY RANDOM()
+    LIMIT #{limit}
+    """)
+    List<TouristPlace> findNearbyPlaces(
+            @Param("lat") double latitude,
+            @Param("lon") double longitude,
+            @Param("radiusMeters") int radiusMeters,
+            @Param("limit") int limit);
 }
