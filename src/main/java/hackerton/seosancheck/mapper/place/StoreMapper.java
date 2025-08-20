@@ -9,12 +9,6 @@ import java.util.List;
 @Mapper
 public interface StoreMapper {
 
-    @Insert("INSERT INTO store " +
-            "(name, address, detail_address, location, type, longitude, latitude, kind_store, tag) " +
-            "VALUES (#{name}, #{address}, #{detailAddress}, #{location}, #{type}, #{longitude}, #{latitude}, #{kindStore}, #{tag})")
-    @Options(useGeneratedKeys = true, keyProperty = "id")
-    int insert(Store store);
-
     @Insert({
             "<script>",
             "INSERT INTO store (name, address, detail_address, location, type, longitude, latitude, kind_store, tag) VALUES",
@@ -38,30 +32,6 @@ public interface StoreMapper {
     // 기존 데이터 삭제 (전체 삭제)
     @Delete("DELETE FROM store")
     int deleteAll();
-
-
-    //MySQL
-    // 식당 근처 조회
-//    @Select("""
-//    SELECT id, name, address, detail_address AS detailAddress,
-//           location, type, longitude, latitude, kind_store AS kindStore, tag,
-//           (6371 * acos(
-//               cos(radians(#{lat})) * cos(radians(latitude)) *
-//               cos(radians(longitude) - radians(#{lon})) +
-//               sin(radians(#{lat})) * sin(radians(latitude))
-//           )) AS distance
-//    FROM store
-//    WHERE (tag LIKE '%식%' OR tag LIKE '%집%' OR kind_store LIKE '%해산물%')
-//    HAVING distance < #{radiusKm}
-//    ORDER BY distance ASC
-//    LIMIT #{limit}
-//    """)
-//    List<Store> findNearbyStores(
-//            @Param("lat") double latitude,
-//            @Param("lon") double longitude,
-//            @Param("radiusKm") double radiusKm,
-//            @Param("limit") int limit);
-
 
     //PostgreSQL
     // 식당 근처 조회
