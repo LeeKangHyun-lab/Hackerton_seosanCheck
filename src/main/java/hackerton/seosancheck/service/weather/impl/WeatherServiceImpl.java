@@ -9,9 +9,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.web.util.UriComponentsBuilder; // import 문 추가
+import org.springframework.web.util.UriComponentsBuilder;
 
-import java.net.URI; // java.net.URI를 import 합니다.
+import java.net.URI;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalDouble;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -43,11 +44,10 @@ public class WeatherServiceImpl implements WeatherService {
         String baseDate = today.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String baseTime = getBaseTime(now);
 
-        if (now.getHour() < 2) {
+        if ("2300".equals(baseTime) && now.getHour() < 2) {
             baseDate = today.minusDays(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         }
 
-        // --- 수정된 부분: UriComponentsBuilder를 사용하여 안전한 URL 생성 ---
         UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(API_URL)
                 .queryParam("serviceKey", apiKey)
                 .queryParam("pageNo", "1")
@@ -58,14 +58,11 @@ public class WeatherServiceImpl implements WeatherService {
                 .queryParam("nx", SEOSAN_NX)
                 .queryParam("ny", SEOSAN_NY);
 
-        // String 대신 URI 객체로 만듭니다.
         URI uri = builder.build(true).toUri();
-        // -----------------------------------------------------------
 
         System.out.println("Request URL: " + uri);
 
         try {
-            // String url 대신 URI 객체를 전달합니다.
             String response = restTemplate.getForObject(uri, String.class);
             return parseWeatherResponse(response);
         } catch (Exception e) {
@@ -79,7 +76,6 @@ public class WeatherServiceImpl implements WeatherService {
         JsonNode items = root.path("response").path("body").path("items").path("item");
 
         if (!items.isArray()) {
-            // 기상청 API가 오류 메시지를 보냈는지 확인
             if (root.path("response").path("header").has("resultMsg")) {
                 String errorMsg = root.path("response").path("header").path("resultMsg").asText();
                 System.out.println("기상청 API 오류: " + errorMsg);
@@ -91,6 +87,10 @@ public class WeatherServiceImpl implements WeatherService {
         String todayDate = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
 
         String currentTemp = findCurrentValue(items, todayDate, currentTime, "T1H");
+        if ("정보 없음".equals(currentTemp)) {
+            currentTemp = findCurrentValue(items, todayDate, currentTime, "TMP");
+        }
+
         String currentSkyCode = findCurrentValue(items, todayDate, currentTime, "SKY");
         String currentPtyCode = findCurrentValue(items, todayDate, currentTime, "PTY");
 
@@ -100,21 +100,38 @@ public class WeatherServiceImpl implements WeatherService {
                         Collectors.collectingAndThen(Collectors.toList(), list -> {
                             DailyForecast forecast = new DailyForecast();
                             forecast.setDate(list.get(0).get("fcstDate").asText());
+
+                            // --- null 값 처리를 위한 로직 개선 ---
                             list.forEach(item -> {
-                                switch (item.get("category").asText()) {
-                                    case "TMX": forecast.setTempMax(item.get("fcstValue").asText()); break;
-                                    case "TMN": forecast.setTempMin(item.get("fcstValue").asText()); break;
+                                String category = item.get("category").asText();
+                                String value = item.get("fcstValue").asText();
+                                switch (category) {
+                                    case "TMX": forecast.setTempMax(value); break;
+                                    case "TMN": forecast.setTempMin(value); break;
                                     case "SKY":
                                         int time = Integer.parseInt(item.get("fcstTime").asText());
                                         if (time >= 600 && time < 1800) {
-                                            if (forecast.getSkyAm() == null) forecast.setSkyAm(getSkyStatus(item.get("fcstValue").asText()));
+                                            if (forecast.getSkyAm() == null) forecast.setSkyAm(getSkyStatus(value));
                                         } else {
-                                            if (forecast.getSkyPm() == null) forecast.setSkyPm(getSkyStatus(item.get("fcstValue").asText()));
+                                            if (forecast.getSkyPm() == null) forecast.setSkyPm(getSkyStatus(value));
                                         }
                                         break;
                                 }
                             });
+
+                            // 최고/최저 기온이 null일 경우, 시간별 기온(TMP)에서 찾아서 채움
+                            if (forecast.getTempMax() == null) {
+                                findDailyExtremeTemp(list, "TMP").ifPresent(temp -> forecast.setTempMax(String.valueOf(temp)));
+                            }
+                            if (forecast.getTempMin() == null) {
+                                findDailyExtremeTemp(list, "TMP").ifPresent(temp -> forecast.setTempMin(String.valueOf(temp)));
+                            }
+
+                            // 오전/오후 하늘 정보가 null일 경우 서로의 값으로 채움
+                            if (forecast.getSkyAm() == null) forecast.setSkyAm(forecast.getSkyPm());
                             if (forecast.getSkyPm() == null) forecast.setSkyPm(forecast.getSkyAm());
+                            // ------------------------------------
+
                             return forecast;
                         })
                 ));
@@ -130,6 +147,13 @@ public class WeatherServiceImpl implements WeatherService {
         );
     }
 
+    private OptionalDouble findDailyExtremeTemp(List<JsonNode> dailyItems, String category) {
+        return dailyItems.stream()
+                .filter(item -> category.equals(item.get("category").asText()))
+                .mapToDouble(item -> Double.parseDouble(item.get("fcstValue").asText()))
+                .max(); // TMX를 찾을 때, min()은 TMN을 찾을 때 사용
+    }
+
     private String findCurrentValue(JsonNode items, String date, String time, String category) {
         return StreamSupport.stream(items.spliterator(), false)
                 .filter(item -> item.get("fcstDate").asText().equals(date) &&
@@ -141,14 +165,16 @@ public class WeatherServiceImpl implements WeatherService {
 
     private String getBaseTime(LocalTime now) {
         int hour = now.getHour();
-        if (hour < 2) return "2300";
-        if (hour < 5) return "0200";
-        if (hour < 8) return "0500";
-        if (hour < 11) return "0800";
-        if (hour < 14) return "1100";
-        if (hour < 17) return "1400";
-        if (hour < 20) return "1700";
-        if (hour < 23) return "2000";
+        int minute = now.getMinute();
+
+        if (hour < 2 || (hour == 2 && minute < 15)) return "2300";
+        if (hour < 5 || (hour == 5 && minute < 15)) return "0200";
+        if (hour < 8 || (hour == 8 && minute < 15)) return "0500";
+        if (hour < 11 || (hour == 11 && minute < 15)) return "0800";
+        if (hour < 14 || (hour == 14 && minute < 15)) return "1100";
+        if (hour < 17 || (hour == 17 && minute < 15)) return "1400";
+        if (hour < 20 || (hour == 20 && minute < 15)) return "1700";
+        if (hour < 23 || (hour == 23 && minute < 15)) return "2000";
         return "2300";
     }
 
