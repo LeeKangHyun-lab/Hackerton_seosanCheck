@@ -23,23 +23,11 @@ public interface TouristPlaceMapper {
     List<TouristPlace> selectAll();
 
     @Select("SELECT id, name, address, latitude, longitude, description, reference_date AS referenceDate, " +
-            "area, category, image_url AS imageUrl, type FROM tourist_place WHERE id = #{id}")
+            "area, category, image_url AS imageUrl,  type FROM tourist_place WHERE id = #{id}")
     TouristPlace selectById(Long id);
 
     @Delete("DELETE FROM tourist_place")
     int deleteAll();
-
-    //MySQL
-    // 특정 지역·카테고리에서 랜덤으로 n개
-//    @Select("SELECT * FROM tourist_place " +
-//            "WHERE area LIKE CONCAT('%', #{area}, '%') " +
-//            "ORDER BY RAND() " +
-//            "LIMIT #{limit}")
-//    List<TouristPlace> findRandomByArea(@Param("area") String area,
-//                                        @Param("limit") int limit);
-
-
-
 
     //PostgreSQL
 //     지역·카테고리 랜덤 n개
@@ -53,27 +41,6 @@ public interface TouristPlaceMapper {
     """)
     List<TouristPlace> findRandomByArea(@Param("area") String area,
                                         @Param("limit") int limit);
-
-    //MySQL
-//    @Select("""
-//    SELECT id, name, address, latitude, longitude, description, reference_date AS referenceDate,
-//           area, category, image_url AS imageUrl,
-//           (6371 * acos(
-//               cos(radians(#{lat})) * cos(radians(latitude)) *
-//               cos(radians(longitude) - radians(#{lon})) +
-//               sin(radians(#{lat})) * sin(radians(latitude))
-//           )) AS distance
-//    FROM tourist_place
-//    HAVING distance < #{radiusKm}
-//    ORDER BY RAND()
-//    LIMIT #{limit}
-//    """)
-//    List<TouristPlace> findNearbyPlaces(
-//            @Param("lat") double latitude,
-//            @Param("lon") double longitude,
-//            @Param("radiusKm") double radiusKm,
-//            @Param("limit") int limit);
-
 
 //    PostgreSQL
     //관광지 근처 조회

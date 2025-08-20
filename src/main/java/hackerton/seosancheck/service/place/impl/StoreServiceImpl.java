@@ -22,33 +22,6 @@ public class StoreServiceImpl implements StoreService {
 
     private final StoreMapper mapper;
 
-//    @Override
-//    public void importExcel(MultipartFile file) {
-//        try (InputStream inputStream = file.getInputStream();
-//             Workbook workbook = new XSSFWorkbook(inputStream)) {
-//
-//            mapper.deleteAll();
-//
-//            Sheet sheet = workbook.getSheetAt(0);
-//            for (int i = 1; i <= sheet.getLastRowNum(); i++) {
-//                org.apache.poi.ss.usermodel.Row row = sheet.getRow(i);
-//                if (row == null) continue;
-//
-//                Store store = new Store();
-//                store.setName(getString(row.getCell(1)));
-//                store.setAddress(getString(row.getCell(2)));
-//                store.setDetailAddress(getString(row.getCell(3)));
-//                store.setLocation(getString(row.getCell(4)));
-//                store.setType(getString(row.getCell(5)));
-//                store.setLongitude(getDouble(row.getCell(6)));
-//                store.setLatitude(getDouble(row.getCell(7)));
-//
-//                mapper.insert(store);
-//            }
-//        } catch (Exception e) {
-//            throw new RuntimeException("엑셀 업로드 실패: " + e.getMessage());
-//        }
-//    }
     @Override
     public void importExcel(MultipartFile file) {
         try (InputStream inputStream = file.getInputStream();

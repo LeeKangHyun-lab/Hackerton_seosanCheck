@@ -33,6 +33,7 @@ public class AIServiceImpl implements AiService {
     private String apiKey;
 
     private static final String API_URL = "https://api.openai.com/v1/chat/completions";
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     // ====== 조건 추출용 키워드/정규식 ======
     private static final Map<String, String> AREA_MAP = Map.ofEntries(
@@ -40,13 +41,14 @@ public class AIServiceImpl implements AiService {
             Map.entry("내륙", "내륙"), Map.entry("산", "내륙"), Map.entry("계곡", "내륙"), Map.entry("숲", "내륙"), Map.entry("도시", "내륙")
     );
 
+    // (참고) 여기엔 순수 '테마'만 두는 게 깔끔하지만, 기존 값을 유지하되 정규식 쪽을 우선 사용.
     private static final Set<String> THEME_KEYWORDS = Set.of(
             "감성", "감성적", "감성적인", "힐링", "먹방", "인생샷",
-            "역사", "문화", "생태", "자연", "체험", "가벼운 당일치기",
-            "친구", "가족", "지역화폐", "로맨틱", "포토스팟", "바쁜", "정신없는"
+            "역사", "문화", "생태", "자연", "체험",
+            "로맨틱", "포토스팟", "바쁜", "정신없는"
     );
 
-    // 정규식 패턴 매칭 (변형 단어 대응)
+    // 변형 단어 대응
     private static final Map<String, Pattern> THEME_PATTERNS = Map.ofEntries(
             Map.entry("감성적인", Pattern.compile("감성.*")),
             Map.entry("힐링", Pattern.compile("힐링.*")),
@@ -60,7 +62,7 @@ public class AIServiceImpl implements AiService {
             Map.entry("로맨틱", Pattern.compile("로맨틱.*")),
             Map.entry("포토스팟", Pattern.compile("포토스팟.*")),
             Map.entry("바쁜", Pattern.compile("바쁜.*")),
-            Map.entry("정신없는", Pattern.compile("정신없.*")) // "정신없이"까지 포괄
+            Map.entry("정신없는", Pattern.compile("정신없.*")) // "정신없이" 포함
     );
 
     private static final List<String> COMPANION_KEYWORDS = List.of(
@@ -68,18 +70,19 @@ public class AIServiceImpl implements AiService {
             "가족", "친구", "연인", "커플", "아이", "혼자", "솔로", "이모", "고모", "할머니", "할아버지"
     );
 
-    // 동행자 패턴 (자유 입력)
     private static final Pattern COMPANION_PATTERN =
             Pattern.compile("([가-힣]+)(랑|과|와|하고)");
 
     private static final Pattern DURATION_PATTERN =
             Pattern.compile("(\\d+)박\\s*(\\d+)일|당일치기|당일|하루|주말|1박2일|2박3일|3박4일");
 
-    /**
-     * 테마 추출 (빠른 매칭 → 정규식 → AI 유사도)
-     */
+    /** 테마 추출 (빠른 contains → 정규식 → AI fallback) */
     private String extractTheme(String normalized, String originalSentence) {
-        // 1) 빠른 매칭
+        for (Map.Entry<String, Pattern> entry : THEME_PATTERNS.entrySet()) {
+            if (entry.getValue().matcher(normalized).find()) {
+                return entry.getKey();
+            }
+        }
         for (String keyword : THEME_KEYWORDS) {
             if (normalized.contains(keyword)) {
                 if (keyword.startsWith("감성")) return "감성적인";
@@ -87,19 +90,12 @@ public class AIServiceImpl implements AiService {
             }
         }
 
-        // 2) 정규식 매칭
-        for (Map.Entry<String, Pattern> entry : THEME_PATTERNS.entrySet()) {
-            if (entry.getValue().matcher(normalized).find()) {
-                return entry.getKey();
-            }
-        }
-
-        // 3) AI Fallback
+        // AI fallback (후보에서 '위험한' 제거)
         try {
             String prompt = "다음 문장에서 여행 테마를 추출하세요. " +
                     "아래 리스트 중 가장 가까운 하나만 골라서 정확히 출력하세요. " +
                     "문장에 같은 의미의 변형(예: '정신없이' → '정신없는', '바쁘게' → '바쁜')이 있으면 대응되는 대표 키워드로 통일하세요.\n" +
-                    "[감성적인, 힐링, 먹방, 인생샷, 역사, 문화, 생태, 자연, 체험, 로맨틱, 포토스팟, 바쁜, 정신없는, 위험한]\n" +
+                    "[감성적인, 힐링, 먹방, 인생샷, 역사, 문화, 생태, 자연, 체험, 로맨틱, 포토스팟, 바쁜, 정신없는]\n" +
                     "문장: " + originalSentence;
 
             Map<String, Object> requestBody = Map.of(
@@ -107,7 +103,8 @@ public class AIServiceImpl implements AiService {
                     "messages", List.of(
                             Map.of("role", "system", "content", "당신은 분류기입니다."),
                             Map.of("role", "user", "content", prompt)
-                    )
+                    ),
+                    "temperature", 0.2
             );
 
             HttpHeaders headers = new HttpHeaders();
@@ -119,25 +116,21 @@ public class AIServiceImpl implements AiService {
                     restTemplate.exchange(API_URL, HttpMethod.POST, entity, String.class);
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                ObjectMapper mapper = new ObjectMapper();
-                Map<String, Object> root = mapper.readValue(response.getBody(), Map.class);
+                Map<String, Object> root = MAPPER.readValue(response.getBody(), Map.class);
                 List<Map<String, Object>> choices = (List<Map<String, Object>>) root.get("choices");
                 if (choices != null && !choices.isEmpty()) {
                     Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
                     String aiTheme = (String) message.get("content");
-                    return aiTheme.trim();
+                    if (aiTheme != null) return aiTheme.trim();
                 }
             }
         } catch (Exception e) {
             log.warn("테마 추론 실패, fallback 사용", e);
         }
-
         return null;
     }
 
-    /**
-     * 사용자 문장에서 조건 추출
-     */
+    /** 사용자 문장에서 조건 추출 */
     public TravelConditions extractConditions(String sentence) {
         if (sentence == null) sentence = "";
         String normalized = sentence.replaceAll("\\s+", " ").trim();
@@ -147,17 +140,15 @@ public class AIServiceImpl implements AiService {
                 .filter(normalized::contains)
                 .findFirst()
                 .orElse(null);
-
         if (companion == null) {
             Matcher matcher = COMPANION_PATTERN.matcher(normalized);
-            if (matcher.find()) {
-                companion = matcher.group(1);
-            }
+            if (matcher.find()) companion = matcher.group(1);
         }
 
         // 2) 기간
         String duration = null;
-        Matcher m = DURATION_PATTERN.matcher(normalized.replaceAll("\\s+", ""));
+        String noSpace = normalized.replace(" ", "");
+        Matcher m = DURATION_PATTERN.matcher(noSpace);
         if (m.find()) {
             duration = m.group();
             if ("당일".equals(duration)) duration = "당일치기";
@@ -189,52 +180,57 @@ public class AIServiceImpl implements AiService {
 
     @Override
     public List<TravelPlanResponse> generateMultiplePlans(String text, String areaParam) {
-        // 1) 사용자 문장에서 조건 추출
+        // 1) 조건 추출
         TravelConditions cond = extractConditions(text);
-        String areaForAI = cond.getArea() != null ? cond.getArea() : areaParam;
-        String companionForAI = cond.getCompanion() != null ? cond.getCompanion() : "미정";
-        String durationForAI = cond.getDuration() != null ? cond.getDuration() : "당일치기";
-        String themeForAI = cond.getTheme() != null ? cond.getTheme() : extractTheme(text, text);
+        String areaForAI = (cond.getArea() != null) ? cond.getArea() : areaParam;
+        String companionForAI = (cond.getCompanion() != null) ? cond.getCompanion() : "미정";
+        String durationForAI = (cond.getDuration() != null) ? cond.getDuration() : "당일치기";
+        String themeForAI = cond.getTheme(); // ✅ 중복 호출 제거
 
         int limit = 15;
 
-        // 2) DB 조회
+        // 2) DB 조회 (프롬프트와 일관된 지역 사용)
+        String areaForDB = (areaForAI != null) ? areaForAI : areaParam;
 
-//      1) 랜덤으로 관광지 하나 선택 (출발점)
-        TouristPlace start = touristPlaceMapper.findRandomByArea(areaParam, 1).get(0);
+        List<TouristPlace> startList = touristPlaceMapper.findRandomByArea(areaForDB, 1);
+        if (startList == null || startList.isEmpty()) {
+            log.warn("해당 지역에서 시작점을 찾지 못했습니다. area={}", areaForDB);
+            return List.of();
+        }
+        TouristPlace start = startList.get(0);
 
-//      2) 기준 좌표 설정
         double centerLat = start.getLatitude();
         double centerLon = start.getLongitude();
 
-//      3) 기준 좌표 반경 5km 내 관광지 + 식당 조회
         List<TouristPlace> places = touristPlaceMapper.findNearbyPlaces(centerLat, centerLon, 5, limit);
         List<Store> stores = storeMapper.findNearbyStores(centerLat, centerLon, 5, limit);
 
-        if (places.isEmpty() || stores.isEmpty()) {
-            log.warn("DB에서 가져온 데이터가 부족합니다. places={}, stores={}", places.size(), stores.size());
+        if ((places == null || places.isEmpty()) && (stores == null || stores.isEmpty())) {
+            log.warn("places/stores 모두 비어있음. area={}", areaForDB);
+            return List.of();
         }
+        if (places == null) places = List.of();
+        if (stores == null) stores = List.of();
 
-
-        // 3) GPT 프롬프트 (명확/강제)
+        // 3) GPT 프롬프트
         StringBuilder prompt = new StringBuilder();
         prompt.append("당신은 서산 여행 코디네이터입니다.\n")
                 .append("다음 조건을 참고하여 서로 다른 3개의 여행 코스를 만들어주세요.\n")
-                .append("- 지역: ").append(areaForAI).append("\n")
-                .append("- 테마: ").append(themeForAI).append("\n")
+                .append("- 지역: ").append(areaForAI == null ? "미정" : areaForAI).append("\n")
+                .append("- 테마: ").append(themeForAI == null ? "미정" : themeForAI).append("\n")
                 .append("- 동행: ").append(companionForAI).append("\n")
                 .append("- 기간: ").append(durationForAI).append("\n\n")
                 .append("규칙:\n")
                 .append("1) 각 코스는 정확히 5개의 '장소'로만 구성합니다.\n")
                 .append("2) 순서는 반드시: 관광지 → 가게(식당) → 관광지 → 관광지 → 가게(식당).\n")
                 .append("3) 'type' 값은 오직 \"관광지\" 또는 \"가게\"만 사용합니다.\n")
-                .append("4) 목록에 없는 장소는 사용하지 마세요. 모자라면 목록에서 중복 선택해서라도 반드시5개를 채우세요.\n")
+                .append("4) 목록에 없는 장소는 사용하지 마세요. 모자라면 목록에서 중복 선택해서라도 반드시 5개를 채우세요.\n")
                 .append("5) 각 항목은 name, type(관광지/가게), description(30자 이상), order를 포함합니다.\n")
-                .append("6) JSON만 출력하세요.\n\n")
+                .append("6) JSON만 출력하세요. 마크다운 코드블록(```), 추가 설명, 접두/접미 문구 금지.\n\n")
                 .append("[관광지 후보]\n");
         for (TouristPlace p : places) {
             prompt.append("- ").append(p.getName())
-                    .append(" (").append(", ").append(p.getArea()).append(")\n");
+                    .append(" (").append(p.getArea()).append(")\n"); // ✅ 여분 콤마 제거
         }
         prompt.append("\n[가게 후보]\n");
         for (Store s : stores) {
@@ -262,14 +258,14 @@ public class AIServiceImpl implements AiService {
                                                              List<TouristPlace> places,
                                                              List<Store> stores) {
         List<TravelPlanResponse> results = new ArrayList<>();
-
         try {
             Map<String, Object> requestBody = Map.of(
                     "model", "gpt-4o-mini",
                     "messages", List.of(
                             Map.of("role", "system", "content", "당신은 여행 코디네이터입니다."),
                             Map.of("role", "user", "content", prompt)
-                    )
+                    ),
+                    "temperature", 0.2
             );
 
             HttpHeaders headers = new HttpHeaders();
@@ -282,8 +278,7 @@ public class AIServiceImpl implements AiService {
 
             String aiText = "";
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                ObjectMapper mapper = new ObjectMapper();
-                Map<String, Object> root = mapper.readValue(response.getBody(), Map.class);
+                Map<String, Object> root = MAPPER.readValue(response.getBody(), Map.class);
                 List<Map<String, Object>> choices = (List<Map<String, Object>>) root.get("choices");
                 if (choices != null && !choices.isEmpty()) {
                     Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
@@ -296,19 +291,17 @@ public class AIServiceImpl implements AiService {
                 int end = aiText.lastIndexOf("}");
                 if (start >= 0 && end > start) {
                     String jsonPart = aiText.substring(start, end + 1);
-                    ObjectMapper mapper = new ObjectMapper();
-                    Map<String, Object> parsed = mapper.readValue(jsonPart, Map.class);
+                    Map<String, Object> parsed = MAPPER.readValue(jsonPart, Map.class);
 
                     List<?> rawPlans = (List<?>) parsed.get("plans");
                     if (rawPlans != null) {
                         for (Object obj : rawPlans) {
                             Map<String, Object> plan;
-
                             if (obj instanceof Map) {
                                 plan = (Map<String, Object>) obj;
                             } else if (obj instanceof String) {
                                 try {
-                                    plan = new ObjectMapper().readValue((String) obj, Map.class);
+                                    plan = MAPPER.readValue((String) obj, Map.class);
                                 } catch (Exception e) {
                                     log.warn("plan 문자열 파싱 실패: {}", obj);
                                     continue;
@@ -321,7 +314,7 @@ public class AIServiceImpl implements AiService {
                             String summary = String.valueOf(plan.getOrDefault("summary", ""));
                             List<?> aiCourseRaw = (List<?>) plan.get("course");
 
-                            // 코스별 중복 제거(같은 코스 내에서만)
+                            // 코스별 중복 제거
                             Set<String> usedInThisCourse = new HashSet<>();
                             List<Map<String, Object>> aiCourse = new ArrayList<>();
                             if (aiCourseRaw != null) {
@@ -331,26 +324,22 @@ public class AIServiceImpl implements AiService {
                                         m = (Map<String, Object>) c;
                                     } else if (c instanceof String) {
                                         try {
-                                            m = new ObjectMapper().readValue((String) c, Map.class);
+                                            m = MAPPER.readValue((String) c, Map.class);
                                         } catch (Exception e) {
                                             log.warn("course 문자열 파싱 실패: {}", c);
                                             continue;
                                         }
-                                    } else {
-                                        continue;
-                                    }
+                                    } else continue;
+
                                     String nm = String.valueOf(m.get("name"));
                                     if (nm == null) continue;
-                                    if (usedInThisCourse.add(nm)) {
-                                        aiCourse.add(m);
-                                    }
+                                    if (usedInThisCourse.add(nm)) aiCourse.add(m);
                                 }
                             }
 
                             // 매핑
                             List<TravelItem> courseItems = mapToCourseItems(aiCourse, places, stores);
-
-                            // 보정: 항상 5개, 가게(식당) 2개 보장
+                            // 보정: 항상 5개, 가게 2개 보장 + order 재시퀀싱
                             courseItems = repairCourse(courseItems, places, stores);
 
                             results.add(new TravelPlanResponse(summary, courseItems));
@@ -362,6 +351,15 @@ public class AIServiceImpl implements AiService {
             log.error("OpenAI 호출/파싱 오류", e);
         }
 
+        // 결과 개수 보정: 정확히 3개 보장
+        if (results.size() > 3) {
+            results = results.subList(0, 3);
+        } else if (results.size() < 3) {
+            while (results.size() < 3) {
+                List<TravelItem> fallback = repairCourse(List.of(), places, stores);
+                results.add(new TravelPlanResponse("근처 인기 스팟으로 구성한 대체 코스", fallback));
+            }
+        }
         return results;
     }
 
@@ -372,14 +370,12 @@ public class AIServiceImpl implements AiService {
 
         return aiCourse.stream().map(item -> {
             try {
-                // order 관대 파싱
                 int order = 0;
                 Object orderObj = item.get("order");
                 if (orderObj instanceof Number) order = ((Number) orderObj).intValue();
                 else if (orderObj != null) order = Integer.parseInt(orderObj.toString());
                 if (order <= 0) order = 1;
 
-                // type alias 허용
                 String type = String.valueOf(item.get("type"));
                 if (type == null) return null;
                 if ("식당".equals(type) || "카페".equals(type)) type = "가게";
@@ -411,7 +407,7 @@ public class AIServiceImpl implements AiService {
         }).filter(Objects::nonNull).collect(Collectors.toList());
     }
 
-    // ===== 보정 로직: 항상 5개, '가게' 2개 보장 =====
+    // ===== 보정 로직: 항상 5개, '가게' 2개 보장 + order 재시퀀싱 =====
     private List<TravelItem> repairCourse(List<TravelItem> items,
                                           List<TouristPlace> places,
                                           List<Store> stores) {
@@ -420,12 +416,12 @@ public class AIServiceImpl implements AiService {
 
         long storeCnt = fixed.stream().filter(i -> "가게".equals(i.getType())).count();
 
-        // 식당(가게) 선호 선택을 위해 태그 기반 필터 우선
+        // 식당(가게) 선호 선택(태그 기반)
         List<Store> restaurantCandidates = stores.stream()
                 .filter(this::isRestaurant)
                 .collect(Collectors.toList());
 
-        // 1) 가게 2개 미만이면 채우기 (우선 식당 태그 있는 후보)
+        // 1) 가게 2개 미만이면 채우기 (식당 태그 우선)
         Iterator<Store> itStores = restaurantCandidates.iterator();
         while (storeCnt < 2 && itStores.hasNext()) {
             Store s = itStores.next();
@@ -433,7 +429,6 @@ public class AIServiceImpl implements AiService {
             fixed.add(toItemFromStore(fixed.size() + 1, s));
             storeCnt++;
         }
-        // 그래도 부족하면 아무 가게로 채우기
         if (storeCnt < 2) {
             itStores = stores.iterator();
             while (storeCnt < 2 && itStores.hasNext()) {
@@ -464,17 +459,38 @@ public class AIServiceImpl implements AiService {
             fixed = fixed.subList(0, 5);
         }
 
+        // 4) order 재시퀀싱 (1..N)
+        fixed.sort(Comparator.comparingInt(TravelItem::getOrder));
+        for (int i = 0; i < fixed.size(); i++) {
+            TravelItem it = fixed.get(i);
+            fixed.set(i, new TravelItem(
+                    i + 1,
+                    it.getId(),
+                    it.getType(),
+                    it.getName(),
+                    it.getDescription(),
+                    it.getAddress(),
+                    it.getLatitude(),
+                    it.getLongitude(),
+                    it.getImageUrl(),
+                    it.getTag()
+            ));
+        }
         return fixed;
     }
 
     private boolean isRestaurant(Store s) {
-        String tag = s.getTag();
-        if (tag == null) return false;
-        String t = tag.toLowerCase();
-        // 상황에 맞게 키워드 추가 가능
-        return t.contains("식당") || t.contains("한식") || t.contains("해산물") || t.contains("칼국수")
-                || t.contains("횟집") || t.contains("국밥") || t.contains("분식") || t.contains("구이")
-                || t.contains("고기") || t.contains("면");
+        if (s.getTag() == null) return false;
+        String t = s.getTag().toLowerCase();
+
+        // 명확히 제외할 카테고리
+        if (t.contains("카페") || t.contains("디저트") || t.contains("베이커리") || t.contains("주점")) {
+            return false;
+        }
+
+        // 식사류 키워드 포함 여부
+        return t.contains("식") || t.contains("집") || t.contains("해산물")
+                || t.contains("뷔페") || t.contains("고기");
     }
 
     private TravelItem toItemFromPlace(int order, TouristPlace p) {
