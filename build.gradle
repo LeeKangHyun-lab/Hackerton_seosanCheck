@@ -24,51 +24,41 @@ repositories {
 }
 
 dependencies {
+    // Spring Boot 기본
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.springframework.boot:spring-boot-starter-jdbc'
-    implementation 'org.springframework.boot:spring-boot-starter-mail'
-    implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:3.0.4'
-    compileOnly 'org.projectlombok:lombok'
-    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+
+
+    // DB 드라이버 (둘 중 하나만 사용)
     runtimeOnly 'com.mysql:mysql-connector-j'
-    annotationProcessor 'org.projectlombok:lombok'
-    testImplementation 'org.springframework.boot:spring-boot-starter-test'
-    testImplementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter-test:3.0.4'
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-// UserAgent Parser 라이브러리
-    implementation 'com.github.ua-parser:uap-java:1.6.1'
-// Log4jdbc-Log4j2 라이브러리
-    implementation 'org.bgee.log4jdbc-log4j2:log4jdbc-log4j2-jdbc4.1:1.16'
-// 썸네일 이미지 생성 라이브러리
-    implementation 'net.coobird:thumbnailator:0.4.20'
-// Lombok이 단위 테스트에서도 작동하도록 설정
-    testAnnotationProcessor 'org.projectlombok:lombok'
-    testCompileOnly 'org.projectlombok:lombok'
-// Spring Session JDBC를 사용하여 세션 관리
-    implementation 'org.springframework.session:spring-session-jdbc'
-
-    implementation 'org.springframework.boot:spring-boot-starter-security'
-
-    implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
-    implementation 'io.jsonwebtoken:jjwt-impl:0.11.5'
-    implementation 'io.jsonwebtoken:jjwt-jackson:0.11.5'
     implementation 'org.postgresql:postgresql:42.6.0'
 
+    // 유틸
+    implementation 'com.github.ua-parser:uap-java:1.6.1'
+    implementation 'org.bgee.log4jdbc-log4j2:log4jdbc-log4j2-jdbc4.1:1.16'
+    implementation 'net.coobird:thumbnailator:0.4.20'
     implementation 'org.apache.poi:poi:5.2.3'
-    implementation 'org.apache.poi:poi-ooxml:5.2.3'
+    implementation('org.apache.poi:poi-ooxml:5.2.3') {
+        exclude group: 'org.apache.httpcomponents', module: 'httpclient' // 4.x 버전 제외
+    }
 
-    implementation 'org.springframework.boot:spring-boot-starter-web'
-    implementation 'org.springframework.boot:spring-boot-starter-json'
-//    implementation 'org.apache.httpcomponents.client5:httpclient5:5.2.1'
-//    implementation 'org.apache.httpcomponents.core5:httpcore5:5.2.1'
+    // HttpClient 5.x (Spring Boot 3.5.x 호환)
+    implementation 'org.apache.httpcomponents.client5:httpclient5'
+    implementation 'org.apache.httpcomponents.core5:httpcore5'
+    implementation 'org.apache.httpcomponents.core5:httpcore5-h2'
+
+    // Lombok
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    // 개발용
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+
+    // 테스트 라이브러리
+    // testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    // testImplementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter-test:3.0.4'
+    // testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
-tasks.named('test') {
-    useJUnitPlatform()
-}
-
-test {
-    useJUnitPlatform() // JUnit 5 사용
-}

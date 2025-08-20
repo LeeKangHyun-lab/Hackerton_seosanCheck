@@ -1,5 +1,7 @@
 package hackerton.seosancheck.common.config;
 
+
+
 import hackerton.seosancheck.common.security.JwtAuthenticationFilter;
 import hackerton.seosancheck.common.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
@@ -14,21 +16,17 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Configuration
 @RequiredArgsConstructor
 public class SecurityConfig {
-
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
-
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(csrf -> csrf.disable())  // CSRF 비활성화
+                .csrf(csrf -> csrf.disable()) // CSRF 비활성화
                 .cors(cors -> {}) //cors 활성화(webConfig 사용)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/", "/api/account/**", "api/store/**", "api/tourist-places/**", "api/ai/**", "/api/weather/**").permitAll()
+                        .requestMatchers("/", "/api/account/**", "api/store/**", "api/tourist-places/**", "api/ai/**").permitAll()
                         .anyRequest().authenticated()
-
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
-
         return http.build();
     }
 

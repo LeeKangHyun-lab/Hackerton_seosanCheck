@@ -8,12 +8,6 @@ import java.util.List;
 @Mapper
 public interface TouristPlaceMapper {
 
-//    @Insert("INSERT INTO tourist_place " +
-//            "(name, address, latitude, longitude, description, reference_date, area, category, image_url, type) " +
-//            "VALUES (#{name}, #{address}, #{latitude}, #{longitude}, #{description}, #{referenceDate}, #{area}, #{category}, #{imageUrl}, #{type})")
-//    @Options(useGeneratedKeys = true, keyProperty = "id")
-//    int insert(TouristPlace place);
-
     @Insert({
             "<script>",
             "INSERT INTO tourist_place (name, address, latitude, longitude, description, reference_date, area, category, image_url) VALUES",
@@ -35,21 +29,68 @@ public interface TouristPlaceMapper {
     @Delete("DELETE FROM tourist_place")
     int deleteAll();
 
-//    MySQL
+    //MySQL
+    // 특정 지역·카테고리에서 랜덤으로 n개
 //    @Select("SELECT * FROM tourist_place " +
-//            "WHERE area = #{area} AND category = #{category} " +
-//            "ORDER BY RAND() LIMIT #{limit}")
-//    List<TouristPlace> findRandomByAreaAndCategory(@Param("area") String area,
-//                                                   @Param("category") String category,
-//                                                   @Param("limit") int limit);
-
-//    postgreSQL
-    @Select("SELECT * FROM tourist_place " +
-            "WHERE area = #{area} AND category = #{category} " +
-            "ORDER BY random() LIMIT #{limit}")
-    List<TouristPlace> findRandomByAreaAndCategory(@Param("area") String area,
-                                                   @Param("category") String category,
-                                                   @Param("limit") int limit);
+//            "WHERE area LIKE CONCAT('%', #{area}, '%') " +
+//            "ORDER BY RAND() " +
+//            "LIMIT #{limit}")
+//    List<TouristPlace> findRandomByArea(@Param("area") String area,
+//                                        @Param("limit") int limit);
 
 
+
+
+    //PostgreSQL
+//     지역·카테고리 랜덤 n개
+    @Select("""
+    SELECT id, name, address, latitude, longitude, description,
+           reference_date AS referenceDate, area, category, image_url AS imageUrl
+    FROM tourist_place
+    WHERE area ILIKE ('%' || #{area} || '%')
+    ORDER BY RANDOM()
+    LIMIT #{limit}
+    """)
+    List<TouristPlace> findRandomByArea(@Param("area") String area,
+                                        @Param("limit") int limit);
+
+    //MySQL
+//    @Select("""
+//    SELECT id, name, address, latitude, longitude, description, reference_date AS referenceDate,
+//           area, category, image_url AS imageUrl,
+//           (6371 * acos(
+//               cos(radians(#{lat})) * cos(radians(latitude)) *
+//               cos(radians(longitude) - radians(#{lon})) +
+//               sin(radians(#{lat})) * sin(radians(latitude))
+//           )) AS distance
+//    FROM tourist_place
+//    HAVING distance < #{radiusKm}
+//    ORDER BY RAND()
+//    LIMIT #{limit}
+//    """)
+//    List<TouristPlace> findNearbyPlaces(
+//            @Param("lat") double latitude,
+//            @Param("lon") double longitude,
+//            @Param("radiusKm") double radiusKm,
+//            @Param("limit") int limit);
+
+
+//    PostgreSQL
+    //관광지 근처 조회
+    @Select("""
+    SELECT id, name, address, latitude, longitude, description, reference_date AS referenceDate,
+           area, category, image_url AS imageUrl
+    FROM tourist_place
+    WHERE ST_DistanceSphere(
+              ST_MakePoint(longitude, latitude),
+              ST_MakePoint(#{lon}, #{lat})
+          ) <= #{radiusMeters}
+    ORDER BY RANDOM()
+    LIMIT #{limit}
+    """)
+    List<TouristPlace> findNearbyPlaces(
+            @Param("lat") double latitude,
+            @Param("lon") double longitude,
+            @Param("radiusMeters") int radiusMeters,
+            @Param("limit") int limit);
 }

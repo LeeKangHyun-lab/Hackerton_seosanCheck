@@ -6,14 +6,12 @@ spring:
     url: ${DB_URL}
     username: ${DB_USER}
     password: ${DB_PASS}
-    driver-class-name: com.mysql.cj.jdbc.Driver
+    driver-class-name: org.postgresql.Driver
 
   session:
     store-type: jdbc
     jdbc:
       initialize-schema: never
-      database-platform: mysql
-
 
 mybatis:
   configuration:
@@ -31,7 +29,3 @@ jwt:
 
 openai:
   api-key: ${OPENAI_API_KEY}
-
-weather:
-  api:
-    key: "1Sl0GJ1xR%2B%2FbnOgwQpif8IlyjMiaByjrn%2BBf%2BepIiiIplgh1efozoLNtOUdRIVuKVfYJJsBHbkffb%2Ba9WafcNQ%3D%3D"
