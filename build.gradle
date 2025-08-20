@@ -33,7 +33,6 @@ dependencies {
 
     // DB 드라이버 (둘 중 하나만 사용)
     runtimeOnly 'com.mysql:mysql-connector-j'
-    implementation 'org.postgresql:postgresql:42.6.0'
 
     // 유틸
     implementation 'com.github.ua-parser:uap-java:1.6.1'
