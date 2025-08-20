@@ -38,3 +38,6 @@ out/
 
 # Ignore application.yml files
 src/main/resources/application-local.yml
+
+# Environment variables
+.env
