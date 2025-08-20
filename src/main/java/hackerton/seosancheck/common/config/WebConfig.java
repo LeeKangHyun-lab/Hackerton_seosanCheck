@@ -19,7 +19,9 @@ public class WebConfig {
                         .allowedOrigins(
                                 "http://localhost:3000",
                                 "https://hackerton-seosanbook.onrender.com",
-                                "https://seosancheck.web.app"
+                                "https://seosancheck.web.app",
+                                "https://seosancheck.store"
+
                         )
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                         .allowedHeaders("*");
