@@ -15,11 +15,11 @@ spring:
 
     # --- 로컬(MySQL) 환경에서 사용할 설정 ---
     # 아래 줄의 주석을 해제하여 사용하세요.
-    driver-class-name: com.mysql.cj.jdbc.Driver
+    # driver-class-name: com.mysql.cj.jdbc.Driver
 
     # --- 배포(PostgreSQL) 환경에서 사용할 설정 ---
     # 아래 줄의 주석을 해제하여 사용하세요.
-    # driver-class-name: org.postgresql.Driver
+    driver-class-name: org.postgresql.Driver # 이 부분을 주석 해제
 
   session:
     store-type: jdbc
@@ -27,11 +27,11 @@ spring:
       initialize-schema: never
       # --- 로컬(MySQL) 환경에서 사용할 설정 ---
       # 아래 줄의 주석을 해제하여 사용하세요.
-      database-platform: mysql
+      # database-platform: mysql
 
       # --- 배포(PostgreSQL) 환경에서 사용할 설정 ---
       # 아래 줄의 주석을 해제하여 사용하세요.
-      # database-platform: postgresql
+      database-platform: postgresql # 이 부분을 주석 해제
 
 mybatis:
   configuration:
