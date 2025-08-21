@@ -1,4 +1,3 @@
-
 # 1단계: 빌드
 FROM openjdk:21-jdk-slim AS builder
 WORKDIR /app
@@ -10,5 +9,5 @@ RUN ./gradlew clean bootJar -x test
 FROM openjdk:21-jdk-slim
 WORKDIR /app
 COPY --from=builder /app/build/libs/*.jar app.jar
-CMD ["java", "-jar", "app.jar"]
-
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "app.jar"]
