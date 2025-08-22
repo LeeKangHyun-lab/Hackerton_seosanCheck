@@ -14,24 +14,30 @@ spring:
     password: ${DB_PASS}
 
     # --- 로컬(MySQL) 환경에서 사용할 설정 ---
-    # 아래 줄의 주석을 해제하여 사용하세요.
-    # driver-class-name: com.mysql.cj.jdbc.Driver
+    driver-class-name: com.mysql.cj.jdbc.Driver
 
-    # --- 배포(PostgreSQL) 환경에서 사용할 설정 ---
-    # 아래 줄의 주석을 해제하여 사용하세요.
-    driver-class-name: org.postgresql.Driver # 이 부분을 주석 해제
+    # --- 배포(PostgreSQL) 환경에서 사용할 설정 (주석 처리) ---
+    # driver-class-name: org.postgresql.Driver
+
+  # --- 💡 캐싱 기능을 위한 JPA 설정 ---
+  jpa:
+    hibernate:
+      # 앱 실행 시 DB 테이블을 자동으로 업데이트 (없으면 생성)
+      ddl-auto: create
+    # 실행되는 SQL 쿼리를 로그로 보여줘서 디버깅에 유용합니다.
+    show-sql: true
+    # 로컬 MySQL 환경에 맞는 설정을 명시해줍니다.
+    database-platform: org.hibernate.dialect.MySQLDialect
 
   session:
     store-type: jdbc
     jdbc:
       initialize-schema: never
       # --- 로컬(MySQL) 환경에서 사용할 설정 ---
-      # 아래 줄의 주석을 해제하여 사용하세요.
-      # database-platform: mysql
+      database-platform: mysql
 
-      # --- 배포(PostgreSQL) 환경에서 사용할 설정 ---
-      # 아래 줄의 주석을 해제하여 사용하세요.
-      database-platform: postgresql # 이 부분을 주석 해제
+      # --- 배포(PostgreSQL) 환경에서 사용할 설정 (주석 처리) ---
+      # database-platform: postgresql
 
 mybatis:
   configuration:
@@ -53,8 +59,3 @@ openai:
 weather:
   api:
     key: ${WEATHER_API_KEY}
-    mid-term-land-url: http://apis.data.go.kr/1360000/MidFcstInfoService/getMidLandFcst
-    mid-term-temp-url: http://apis.data.go.kr/1360000/MidFcstInfoService/getMidTa
-
-    seosan-region-id: "11C20101"
-
