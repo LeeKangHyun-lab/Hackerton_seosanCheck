@@ -17,9 +17,12 @@ public class WebConfig {
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
                         .allowedOrigins(
-                                "http://localhost:3000"
-                                "https://seosancheck.web.app",
-                                "https://seosancheck.store"
+                
+                                "http://localhost:3000", //프론트 개발용 주소
+                                //개발용 render 경로 삭제
+                                "https://seosancheck.web.app", //프론트 개발용 주소
+                                "https://seosancheck.store" // 프론트 주소
+
 
                         )
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
