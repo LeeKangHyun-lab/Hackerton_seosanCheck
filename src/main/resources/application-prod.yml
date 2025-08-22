@@ -7,33 +7,16 @@ server:
       force: true
 
 spring:
-  # --- 데이터베이스 설정 ---
   datasource:
     url: ${DB_URL}
     username: ${DB_USER}
     password: ${DB_PASS}
-
-    # driver-class-name: org.postgresql.Driver
-
-  # --- 💡 캐싱 기능을 위한 JPA 설정 ---
-  jpa:
-    hibernate:
-      # 앱 실행 시 DB 테이블을 자동으로 업데이트 (없으면 생성)
-      ddl-auto: create
-    # 실행되는 SQL 쿼리를 로그로 보여줘서 디버깅에 유용합니다.
-    show-sql: true
-    # 로컬 MySQL 환경에 맞는 설정을 명시해줍니다.
-    database-platform: org.hibernate.dialect.MySQLDialect
+    driver-class-name: org.postgresql.Driver
 
   session:
     store-type: jdbc
     jdbc:
       initialize-schema: never
-      # --- 로컬(MySQL) 환경에서 사용할 설정 ---
-      database-platform: mysql
-
-      # --- 배포(PostgreSQL) 환경에서 사용할 설정 (주석 처리) ---
-      # database-platform: postgresql
 
 mybatis:
   configuration:
@@ -44,10 +27,6 @@ logging:
     org.mybatis: DEBUG
     hackerton.seosancheck.mapper: DEBUG
 
-jwt:
-  secret: ${JWT_SECRET}
-  access-expiry: 900000      # 15분
-  refresh-expiry: 1209600000 # 14일
 
 openai:
   api-key: ${OPENAI_API_KEY}
@@ -55,3 +34,7 @@ openai:
 weather:
   api:
     key: ${WEATHER_API_KEY}
+    mid-term-land-url: http://apis.data.go.kr/1360000/MidFcstInfoService/getMidLandFcst
+    mid-term-temp-url: http://apis.data.go.kr/1360000/MidFcstInfoService/getMidTa
+    seosan-region-id: "11C20101"
+
