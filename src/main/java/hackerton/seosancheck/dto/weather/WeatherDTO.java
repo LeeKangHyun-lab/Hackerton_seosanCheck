@@ -1,19 +1,28 @@
 package hackerton.seosancheck.dto.weather;
 
 import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-import java.util.ArrayList;
 import java.util.List;
 
-@Data
-@AllArgsConstructor
+@Getter
+@Setter
 @NoArgsConstructor
+@AllArgsConstructor
 public class WeatherDTO {
+
+    // 실시간 정보
     private String currentTemperature;
     private String currentSky;
     private String precipitation;
-    // This list is now initialized, so it will never be null.
-    private List<DailyForecast> weeklyForecast = new ArrayList<>();
+
+    // 오늘의 최고/최저 기온
+    private String todayTempMax;
+    private String todayTempMin;
+
+    // 주간 예보 (오늘 이후 7일)
+    private List<DailyForecast> weeklyForecast;
+
 }

@@ -12,9 +12,12 @@ import hackerton.seosancheck.service.weather.WeatherService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.DefaultTransactionDefinition;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
+
 
 import java.net.URI;
 import java.time.LocalDate;
@@ -25,6 +28,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -37,6 +41,9 @@ public class WeatherServiceImpl implements WeatherService {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
     private final DailyWeatherCacheRepository weatherCacheRepository;
+
+    // 💡 JPA와 MyBatis의 트랜잭션 충돌을 해결하기 위해 트랜잭션 관리자를 직접 주입받습니다.
+    private final PlatformTransactionManager transactionManager;
 
     @Value("${weather.api.key}")
     private String apiKey;
@@ -53,15 +60,26 @@ public class WeatherServiceImpl implements WeatherService {
     private static final String SEOSAN_NY = "109";
 
     @Override
-    @Transactional
     public WeatherDTO getSeosanWeather() {
         LocalDate today = LocalDate.now();
-        List<DailyWeatherCache> cachedForecasts = weatherCacheRepository.findByForecastDateBetween(today, today.plusDays(6));
+        // @Transactional 어노테이션 대신 수동으로 트랜잭션을 관리하므로, 읽기 작업도 트랜잭션 내에서 수행합니다.
+        DefaultTransactionDefinition def = new DefaultTransactionDefinition();
+        TransactionStatus status = transactionManager.getTransaction(def);
+        List<DailyWeatherCache> cachedForecasts;
+        try {
+            cachedForecasts = weatherCacheRepository.findByForecastDateBetween(today, today.plusDays(7));
+            transactionManager.commit(status);
+        } catch (Exception e) {
+            transactionManager.rollback(status);
+            throw e; // 오류 발생 시 예외를 던져서 알림
+        }
+
         List<DailyForecast> weeklyForecast;
 
         if (cachedForecasts.isEmpty() || cachedForecasts.get(0).getFetchedAt().toLocalDate().isBefore(today)) {
-            weeklyForecast = fetchAndCacheNewForecasts();
+            weeklyForecast = fetchAndCacheNewForecasts(today);
         } else {
+            System.out.println("✅ Valid cache found in DB. Using cached data.");
             weeklyForecast = cachedForecasts.stream()
                     .map(this::convertCacheToDto)
                     .sorted(Comparator.comparing(DailyForecast::getDate))
@@ -70,81 +88,72 @@ public class WeatherServiceImpl implements WeatherService {
 
         WeatherDTO realtimeWeather = getRealtimeWeather();
 
-        String currentSky = "정보 없음";
-        if (!weeklyForecast.isEmpty() && today.isEqual(LocalDate.parse(weeklyForecast.get(0).getDate(), DateTimeFormatter.ofPattern("yyyyMMdd")))) {
-            currentSky = weeklyForecast.get(0).getSkyPm();
-        }
+        DailyForecast todayForecast = weeklyForecast.stream()
+                .filter(forecast -> LocalDate.parse(forecast.getDate(), DateTimeFormatter.ofPattern("yyyyMMdd")).isEqual(today))
+                .findFirst()
+                .orElse(new DailyForecast());
 
-        // --- 수정된 부분: 오늘부터 7일치 예보를 반환하도록 변경 ---
-        List<DailyForecast> finalWeeklyForecast = weeklyForecast.stream()
-                .filter(forecast -> !LocalDate.parse(forecast.getDate(), DateTimeFormatter.ofPattern("yyyyMMdd")).isBefore(today))
+        List<DailyForecast> next7DaysForecast = weeklyForecast.stream()
+                .filter(forecast -> LocalDate.parse(forecast.getDate(), DateTimeFormatter.ofPattern("yyyyMMdd")).isAfter(today))
                 .limit(7)
                 .collect(Collectors.toList());
-        // ----------------------------------------------------
 
         return new WeatherDTO(
                 realtimeWeather.getCurrentTemperature(),
-                currentSky,
+                todayForecast.getSkyPm(),
                 realtimeWeather.getPrecipitation(),
-                finalWeeklyForecast
+                todayForecast.getTempMax(),
+                todayForecast.getTempMin(),
+                next7DaysForecast
         );
     }
 
-    private List<DailyForecast> fetchAndCacheNewForecasts() {
+    private List<DailyForecast> fetchAndCacheNewForecasts(LocalDate today) {
+        // 💡 트랜잭션을 수동으로 시작하여 DB 저장 실패를 방지합니다.
+        TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
         try {
-            WeatherDTO shortTermData = getShortTermForecast();
-            List<DailyForecast> midTermData = getMidTermForecast();
+            System.out.println("--- Starting new forecast fetch ---");
 
-            if (shortTermData.getWeeklyForecast() == null) {
-                shortTermData.setWeeklyForecast(new ArrayList<>());
-            }
+            WeatherDTO shortTermData = getShortTermForecast();
+            int shortTermSize = shortTermData.getWeeklyForecast() != null ? shortTermData.getWeeklyForecast().size() : 0;
+            System.out.println("✅ Step 1: Fetched " + shortTermSize + " days from short-term forecast.");
+
+            List<DailyForecast> midTermData = getMidTermForecast(today);
+            System.out.println("✅ Step 2: Fetched " + midTermData.size() + " days from mid-term forecast.");
 
             Map<String, DailyForecast> forecastMap = shortTermData.getWeeklyForecast().stream()
                     .collect(Collectors.toMap(DailyForecast::getDate, f -> f));
-
             midTermData.forEach(mid -> forecastMap.putIfAbsent(mid.getDate(), mid));
+            System.out.println("✅ Step 3: Combined forecasts. Total unique days: " + forecastMap.size());
 
             List<DailyForecast> finalForecast = new ArrayList<>(forecastMap.values());
             finalForecast.sort(Comparator.comparing(DailyForecast::getDate));
 
             if (!finalForecast.isEmpty()) {
-                weatherCacheRepository.deleteAll(); // 기존 캐시 삭제
+                System.out.println("✅ Step 4: Preparing to save " + finalForecast.size() + " days to the database.");
+                weatherCacheRepository.deleteAllByForecastDateBefore(today);
                 List<DailyWeatherCache> newCache = finalForecast.stream()
                         .map(this::convertDtoToCache)
                         .collect(Collectors.toList());
                 weatherCacheRepository.saveAll(newCache);
+                System.out.println("✅ Step 5: Save operation completed.");
             }
 
+            // 💡 모든 작업이 성공하면 트랜잭션을 커밋(최종 저장)합니다.
+            transactionManager.commit(status);
+            System.out.println("--- ✅ Transaction committed successfully! ---");
             return finalForecast;
+
         } catch (Exception e) {
+            // 💡 오류 발생 시 모든 작업을 취소(롤백)합니다.
+            transactionManager.rollback(status);
+            System.err.println("--- ❌ An error occurred! Transaction has been rolled back. ---");
             e.printStackTrace();
             return new ArrayList<>();
         }
     }
 
-    private WeatherDTO getRealtimeWeather() {
-        try {
-            LocalTime now = LocalTime.now();
-            String baseTime = getRealtimeBaseTime(now);
-            String baseDate = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-
-            if ("2330".equals(baseTime) && now.getHour() == 0) {
-                baseDate = LocalDate.now().minusDays(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-            }
-
-            URI uri = UriComponentsBuilder.fromHttpUrl(REALTIME_API_URL)
-                    .queryParam("serviceKey", apiKey).queryParam("pageNo", "1").queryParam("numOfRows", "100")
-                    .queryParam("dataType", "JSON").queryParam("base_date", baseDate).queryParam("base_time", baseTime)
-                    .queryParam("nx", SEOSAN_NX).queryParam("ny", SEOSAN_NY)
-                    .build(true).toUri();
-
-            String response = restTemplate.getForObject(uri, String.class);
-            return parseRealtimeResponse(response);
-        } catch (Exception e) {
-            System.err.println("실시간 날씨 정보 조회 실패: " + e.getMessage());
-            return new WeatherDTO("정보 없음", "정보 없음", "정보 없음", new ArrayList<>());
-        }
-    }
+    // ... (이하 다른 메서드들은 이전과 동일합니다) ...
 
     private WeatherDTO getShortTermForecast() throws Exception {
         LocalDate today = LocalDate.now();
@@ -166,137 +175,52 @@ public class WeatherServiceImpl implements WeatherService {
         return parseShortTermResponse(response);
     }
 
-    private List<DailyForecast> getMidTermForecast() {
-        try {
-            String tmFc = getMidTermBaseTime();
-
-            String tempUrl = buildMidTermUrl(midTermTempUrl, tmFc);
-            String landUrl = buildMidTermUrl(midTermLandUrl, tmFc);
-
-            String tempResponse = restTemplate.getForObject(tempUrl, String.class);
-            MidTermTempDTO tempDTO = parseMidTermResponse(tempResponse, MidTermTempDTO.class);
-
-            String landResponse = restTemplate.getForObject(landUrl, String.class);
-            MidTermLandDTO landDTO = parseMidTermResponse(landResponse, MidTermLandDTO.class);
-
-            return combineMidTermForecasts(tempDTO, landDTO);
-        } catch (Exception e) {
-            System.err.println("중기예보 API 호출 실패: " + e.getMessage());
-            return new ArrayList<>();
-        }
-    }
-
-    private String buildMidTermUrl(String baseUrl, String tmFc) {
-        return UriComponentsBuilder.fromHttpUrl(baseUrl)
-                .queryParam("serviceKey", apiKey).queryParam("pageNo", "1").queryParam("numOfRows", "10")
-                .queryParam("dataType", "JSON").queryParam("regId", seosanRegionId).queryParam("tmFc", tmFc)
-                .build(true).toUriString();
-    }
-
-    private List<DailyForecast> combineMidTermForecasts(MidTermTempDTO temp, MidTermLandDTO land) {
-        List<DailyForecast> forecasts = new ArrayList<>();
-        LocalDate today = LocalDate.now();
-        for (int i = 3; i <= 10; i++) {
-            try {
-                DailyForecast df = new DailyForecast();
-                df.setDate(today.plusDays(i).format(DateTimeFormatter.ofPattern("yyyyMMdd")));
-
-                df.setTempMin(String.valueOf(temp.getClass().getDeclaredField("taMin" + i).get(temp)));
-                df.setTempMax(String.valueOf(temp.getClass().getDeclaredField("taMax" + i).get(temp)));
-
-                if (i <= 7) {
-                    df.setSkyAm((String) land.getClass().getDeclaredField("wf" + i + "Am").get(land));
-                    df.setSkyPm((String) land.getClass().getDeclaredField("wf" + i + "Pm").get(land));
-                } else {
-                    String sky = (String) land.getClass().getDeclaredField("wf" + i).get(land);
-                    df.setSkyAm(sky);
-                    df.setSkyPm(sky);
-                }
-                forecasts.add(df);
-            } catch (Exception e) {
-                break;
-            }
-        }
-        return forecasts;
-    }
-
-    private <T> T parseMidTermResponse(String jsonResponse, Class<T> dtoClass) throws Exception {
-        JsonNode root = objectMapper.readTree(jsonResponse);
-        JsonNode itemNode = root.path("response").path("body").path("items").path("item").get(0);
-        return objectMapper.treeToValue(itemNode, dtoClass);
-    }
-
     private WeatherDTO parseShortTermResponse(String jsonResponse) throws Exception {
         JsonNode root = objectMapper.readTree(jsonResponse);
         JsonNode items = root.path("response").path("body").path("items").path("item");
 
-        if (!items.isArray()) { return new WeatherDTO("정보 없음", "정보 없음", "정보 없음", new ArrayList<>()); }
-
-        String currentTime = LocalTime.now().format(DateTimeFormatter.ofPattern("HH00"));
-        String todayDate = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-
-        String currentTemp = findCurrentValue(items, todayDate, currentTime, "TMP");
-        String currentSkyCode = findCurrentValue(items, todayDate, currentTime, "SKY");
-        String currentPtyCode = findCurrentValue(items, todayDate, currentTime, "PTY");
-
-        Map<String, DailyForecast> forecastMap = StreamSupport.stream(items.spliterator(), false)
-                .collect(Collectors.groupingBy(item -> item.get("fcstDate").asText(),
-                        Collectors.collectingAndThen(Collectors.toList(), list -> {
-                            DailyForecast forecast = new DailyForecast();
-                            forecast.setDate(list.get(0).get("fcstDate").asText());
-                            list.forEach(item -> {
-                                String category = item.get("category").asText();
-                                String value = item.get("fcstValue").asText();
-                                switch (category) {
-                                    case "TMX": forecast.setTempMax(value); break;
-                                    case "TMN": forecast.setTempMin(value); break;
-                                    case "SKY":
-                                        int time = Integer.parseInt(item.get("fcstTime").asText());
-                                        if (time >= 600 && time < 1800) {
-                                            if (forecast.getSkyAm() == null) forecast.setSkyAm(getSkyStatus(value));
-                                        } else {
-                                            if (forecast.getSkyPm() == null) forecast.setSkyPm(getSkyStatus(value));
-                                        }
-                                        break;
-                                }
-                            });
-                            if (forecast.getTempMax() == null) {
-                                findDailyExtremeTemp(list, true).ifPresent(maxTemp -> forecast.setTempMax(String.format("%.1f", maxTemp)));
-                            }
-                            if (forecast.getTempMin() == null) {
-                                findDailyExtremeTemp(list, false).ifPresent(minTemp -> forecast.setTempMin(String.format("%.1f", minTemp)));
-                            }
-                            if (forecast.getSkyAm() == null) forecast.setSkyAm(forecast.getSkyPm());
-                            if (forecast.getSkyPm() == null) forecast.setSkyPm(forecast.getSkyAm());
-                            return forecast;
-                        })
-                ));
-
-        List<DailyForecast> weeklyForecast = new ArrayList<>(forecastMap.values());
-        weeklyForecast.sort(Comparator.comparing(DailyForecast::getDate));
-
-        return new WeatherDTO(currentTemp, getSkyStatus(currentSkyCode), getPrecipitationStatus(currentPtyCode), weeklyForecast);
-    }
-
-    private WeatherDTO parseRealtimeResponse(String jsonResponse) throws Exception {
-        JsonNode root = objectMapper.readTree(jsonResponse);
-        JsonNode items = root.path("response").path("body").path("items").path("item");
-
-        if (!items.isArray() || items.size() == 0) {
-            return new WeatherDTO("정보 없음", "정보 없음", "정보 없음", new ArrayList<>());
+        if (!items.isArray()) {
+            return new WeatherDTO();
         }
 
-        Map<String, String> realtimeData = StreamSupport.stream(items.spliterator(), false)
-                .collect(Collectors.toMap(
-                        item -> item.get("category").asText(),
-                        item -> item.get("obsrValue").asText(),
-                        (existing, replacement) -> existing
-                ));
+        Map<String, List<JsonNode>> dailyItemsMap = StreamSupport.stream(items.spliterator(), false)
+                .collect(Collectors.groupingBy(item -> item.get("fcstDate").asText()));
 
-        String temp = realtimeData.getOrDefault("T1H", "정보 없음");
-        String ptyCode = realtimeData.getOrDefault("PTY", "정보 없음");
+        List<DailyForecast> weeklyForecast = dailyItemsMap.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .map(entry -> {
+                    String date = entry.getKey();
+                    List<JsonNode> dailyItems = entry.getValue();
 
-        return new WeatherDTO(temp, "정보 없음", getPrecipitationStatus(ptyCode), new ArrayList<>());
+                    String tempMax = findCategoryValue(dailyItems, "TMX").orElse(null);
+                    String tempMin = findCategoryValue(dailyItems, "TMN").orElse(null);
+
+                    if (tempMax == null) {
+                        OptionalDouble maxTempOpt = findDailyExtremeTemp(dailyItems, true);
+                        tempMax = maxTempOpt.isPresent() ? String.format("%.1f", maxTempOpt.getAsDouble()) : "정보 없음";
+                    }
+                    if (tempMin == null) {
+                        OptionalDouble minTempOpt = findDailyExtremeTemp(dailyItems, false);
+                        tempMin = minTempOpt.isPresent() ? String.format("%.1f", minTempOpt.getAsDouble()) : "정보 없음";
+                    }
+
+                    String skyAm = findSkyValue(dailyItems, true).orElse("정보 없음");
+                    String skyPm = findSkyValue(dailyItems, false).orElse("정보 없음");
+
+                    return new DailyForecast(date, tempMax, tempMin, skyAm, skyPm);
+                })
+                .collect(Collectors.toList());
+
+        WeatherDTO result = new WeatherDTO();
+        result.setWeeklyForecast(weeklyForecast);
+        return result;
+    }
+
+    private Optional<String> findCategoryValue(List<JsonNode> items, String category) {
+        return items.stream()
+                .filter(item -> category.equals(item.get("category").asText()))
+                .map(item -> item.get("fcstValue").asText())
+                .findFirst();
     }
 
     private OptionalDouble findDailyExtremeTemp(List<JsonNode> dailyItems, boolean findMax) {
@@ -308,12 +232,134 @@ public class WeatherServiceImpl implements WeatherService {
         }
     }
 
-    private String findCurrentValue(JsonNode items, String date, String time, String category) {
-        return StreamSupport.stream(items.spliterator(), false)
-                .filter(item -> item.get("fcstDate").asText().equals(date) && item.get("category").asText().equals(category))
-                .min(Comparator.comparingInt(item -> Math.abs(Integer.parseInt(item.get("fcstTime").asText()) - Integer.parseInt(time))))
-                .map(item -> item.get("fcstValue").asText())
-                .orElse("정보 없음");
+    private Optional<String> findSkyValue(List<JsonNode> items, boolean isAm) {
+        int startTime = isAm ? 600 : 1500;
+        int endTime = isAm ? 1200 : 2100;
+
+        return items.stream()
+                .filter(item -> "SKY".equals(item.get("category").asText()))
+                .filter(item -> {
+                    int time = Integer.parseInt(item.get("fcstTime").asText());
+                    return time >= startTime && time <= endTime;
+                })
+                .map(item -> getSkyStatus(item.get("fcstValue").asText()))
+                .findFirst();
+    }
+
+    private List<DailyForecast> getMidTermForecast(LocalDate today) {
+        try {
+            String tmFc = getMidTermBaseTime();
+            String tempUrl = buildMidTermUrl(midTermTempUrl, tmFc);
+            String landUrl = buildMidTermUrl(midTermLandUrl, tmFc);
+            String tempResponse = restTemplate.getForObject(tempUrl, String.class);
+            MidTermTempDTO tempDTO = parseMidTermResponse(tempResponse, MidTermTempDTO.class);
+            String landResponse = restTemplate.getForObject(landUrl, String.class);
+            MidTermLandDTO landDTO = parseMidTermResponse(landResponse, MidTermLandDTO.class);
+            return combineMidTermForecasts(tempDTO, landDTO, today);
+        } catch (Exception e) {
+            System.err.println("❌ Mid-term forecast API call failed: " + e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    private String getFieldValue(Object dto, String fieldName) {
+        try {
+            return String.valueOf(dto.getClass().getDeclaredField(fieldName).get(dto));
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private List<DailyForecast> combineMidTermForecasts(MidTermTempDTO temp, MidTermLandDTO land, LocalDate today) {
+        List<DailyForecast> forecasts = new ArrayList<>();
+        for (int i = 3; i <= 10; i++) {
+            String date = today.plusDays(i).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+            String tempMinStr = getFieldValue(temp, "taMin" + i);
+            String tempMaxStr = getFieldValue(temp, "taMax" + i);
+
+            if (tempMinStr == null || tempMaxStr == null) {
+                continue;
+            }
+
+            String skyAm;
+            String skyPm;
+
+            if (i <= 7) {
+                skyAm = getFieldValue(land, "wf" + i + "Am");
+                skyPm = getFieldValue(land, "wf" + i + "Pm");
+            } else {
+                String sky = getFieldValue(land, "wf" + i);
+                skyAm = sky;
+                skyPm = sky;
+            }
+
+            forecasts.add(new DailyForecast(
+                    date,
+                    tempMaxStr,
+                    tempMinStr,
+                    skyAm != null ? skyAm : "정보 없음",
+                    skyPm != null ? skyPm : "정보 없음"
+            ));
+        }
+        return forecasts;
+    }
+
+    private WeatherDTO getRealtimeWeather() {
+        try {
+            LocalTime now = LocalTime.now();
+            String baseTime = getRealtimeBaseTime(now);
+            String baseDate = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+
+            if ("2330".equals(baseTime) && now.getHour() == 0) {
+                baseDate = LocalDate.now().minusDays(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+            }
+
+            URI uri = UriComponentsBuilder.fromHttpUrl(REALTIME_API_URL)
+                    .queryParam("serviceKey", apiKey).queryParam("pageNo", "1").queryParam("numOfRows", "100")
+                    .queryParam("dataType", "JSON").queryParam("base_date", baseDate).queryParam("base_time", baseTime)
+                    .queryParam("nx", SEOSAN_NX).queryParam("ny", SEOSAN_NY)
+                    .build(true).toUri();
+
+            String response = restTemplate.getForObject(uri, String.class);
+            return parseRealtimeResponse(response);
+        } catch (Exception e) {
+            System.err.println("❌ Realtime weather API call failed: " + e.getMessage());
+            return new WeatherDTO();
+        }
+    }
+
+    private WeatherDTO parseRealtimeResponse(String jsonResponse) throws Exception {
+        JsonNode root = objectMapper.readTree(jsonResponse);
+        JsonNode items = root.path("response").path("body").path("items").path("item");
+
+        WeatherDTO dto = new WeatherDTO();
+        if (!items.isArray() || items.size() == 0) {
+            return dto;
+        }
+
+        Map<String, String> realtimeData = StreamSupport.stream(items.spliterator(), false)
+                .collect(Collectors.toMap(
+                        item -> item.get("category").asText(),
+                        item -> item.get("obsrValue").asText(),
+                        (existing, replacement) -> existing
+                ));
+
+        dto.setCurrentTemperature(realtimeData.getOrDefault("T1H", "정보 없음"));
+        dto.setPrecipitation(getPrecipitationStatus(realtimeData.getOrDefault("PTY", "정보 없음")));
+        return dto;
+    }
+
+    private String buildMidTermUrl(String baseUrl, String tmFc) {
+        return UriComponentsBuilder.fromHttpUrl(baseUrl)
+                .queryParam("serviceKey", apiKey).queryParam("pageNo", "1").queryParam("numOfRows", "10")
+                .queryParam("dataType", "JSON").queryParam("regId", seosanRegionId).queryParam("tmFc", tmFc)
+                .build(true).toUriString();
+    }
+
+    private <T> T parseMidTermResponse(String jsonResponse, Class<T> dtoClass) throws Exception {
+        JsonNode root = objectMapper.readTree(jsonResponse);
+        JsonNode itemNode = root.path("response").path("body").path("items").path("item").get(0);
+        return objectMapper.treeToValue(itemNode, dtoClass);
     }
 
     private String getRealtimeBaseTime(LocalTime now) {
@@ -375,23 +421,23 @@ public class WeatherServiceImpl implements WeatherService {
 
     private DailyWeatherCache convertDtoToCache(DailyForecast dto) {
         LocalDate forecastDate = LocalDate.parse(dto.getDate(), DateTimeFormatter.ofPattern("yyyyMMdd"));
-        return new DailyWeatherCache(
-                forecastDate,
-                LocalDateTime.now(),
-                dto.getTempMax(),
-                dto.getTempMin(),
-                dto.getSkyAm(),
-                dto.getSkyPm()
-        );
+        return DailyWeatherCache.builder()
+                .forecastDate(forecastDate)
+                .fetchedAt(LocalDateTime.now())
+                .tempMax(dto.getTempMax())
+                .tempMin(dto.getTempMin())
+                .skyAm(dto.getSkyAm())
+                .skyPm(dto.getSkyPm())
+                .build();
     }
 
     private DailyForecast convertCacheToDto(DailyWeatherCache cache) {
-        DailyForecast dto = new DailyForecast();
-        dto.setDate(cache.getForecastDate().format(DateTimeFormatter.ofPattern("yyyyMMdd")));
-        dto.setTempMax(cache.getTempMax());
-        dto.setTempMin(cache.getTempMin());
-        dto.setSkyAm(cache.getSkyAm());
-        dto.setSkyPm(cache.getSkyPm());
-        return dto;
+        return new DailyForecast(
+                cache.getForecastDate().format(DateTimeFormatter.ofPattern("yyyyMMdd")),
+                cache.getTempMax(),
+                cache.getTempMin(),
+                cache.getSkyAm(),
+                cache.getSkyPm()
+        );
     }
 }
