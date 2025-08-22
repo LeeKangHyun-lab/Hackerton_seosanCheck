@@ -17,8 +17,7 @@ public class WebConfig {
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
                         .allowedOrigins(
-                                "http://localhost:3000",
-                                "https://hackerton-seosanbook.onrender.com",
+                                "http://localhost:3000"
                                 "https://seosancheck.web.app",
                                 "https://seosancheck.store"
 
