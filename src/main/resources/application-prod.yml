@@ -13,10 +13,6 @@ spring:
     username: ${DB_USER}
     password: ${DB_PASS}
 
-    # --- 로컬(MySQL) 환경에서 사용할 설정 ---
-    driver-class-name: com.mysql.cj.jdbc.Driver
-
-    # --- 배포(PostgreSQL) 환경에서 사용할 설정 (주석 처리) ---
     # driver-class-name: org.postgresql.Driver
 
   # --- 💡 캐싱 기능을 위한 JPA 설정 ---
