@@ -29,7 +29,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-jdbc'
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:3.0.4'
-
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa' // --- THIS LINE IS ADDED ---
 
     // DB 드라이버 (둘 중 하나만 사용)
     runtimeOnly 'com.mysql:mysql-connector-j'
@@ -60,4 +60,3 @@ dependencies {
     // testImplementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter-test:3.0.4'
     // testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
-

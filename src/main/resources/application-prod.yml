@@ -33,3 +33,6 @@ openai:
 weather:
   api:
     key: "1Sl0GJ1xR%2B%2FbnOgwQpif8IlyjMiaByjrn%2BBf%2BepIiiIplgh1efozoLNtOUdRIVuKVfYJJsBHbkffb%2Ba9WafcNQ%3D%3D"
+    mid-term-land-url: http://apis.data.go.kr/1360000/MidFcstInfoService/getMidLandFcst
+    mid-term-temp-url: http://apis.data.go.kr/1360000/MidFcstInfoService/getMidTa
+    seosan-region-id: "11C20101"
