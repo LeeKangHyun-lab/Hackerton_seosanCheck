@@ -7,16 +7,31 @@ server:
       force: true
 
 spring:
+  # --- 데이터베이스 설정 ---
   datasource:
     url: ${DB_URL}
     username: ${DB_USER}
     password: ${DB_PASS}
-    driver-class-name: org.postgresql.Driver
+
+    # --- 로컬(MySQL) 환경에서 사용할 설정 ---
+    # 아래 줄의 주석을 해제하여 사용하세요.
+    # driver-class-name: com.mysql.cj.jdbc.Driver
+
+    # --- 배포(PostgreSQL) 환경에서 사용할 설정 ---
+    # 아래 줄의 주석을 해제하여 사용하세요.
+    driver-class-name: org.postgresql.Driver # 이 부분을 주석 해제
 
   session:
     store-type: jdbc
     jdbc:
       initialize-schema: never
+      # --- 로컬(MySQL) 환경에서 사용할 설정 ---
+      # 아래 줄의 주석을 해제하여 사용하세요.
+      # database-platform: mysql
+
+      # --- 배포(PostgreSQL) 환경에서 사용할 설정 ---
+      # 아래 줄의 주석을 해제하여 사용하세요.
+      database-platform: postgresql # 이 부분을 주석 해제
 
 mybatis:
   configuration:
@@ -27,6 +42,10 @@ logging:
     org.mybatis: DEBUG
     hackerton.seosancheck.mapper: DEBUG
 
+jwt:
+  secret: ${JWT_SECRET}
+  access-expiry: 900000      # 15분
+  refresh-expiry: 1209600000 # 14일
 
 openai:
   api-key: ${OPENAI_API_KEY}
@@ -36,5 +55,6 @@ weather:
     key: ${WEATHER_API_KEY}
     mid-term-land-url: http://apis.data.go.kr/1360000/MidFcstInfoService/getMidLandFcst
     mid-term-temp-url: http://apis.data.go.kr/1360000/MidFcstInfoService/getMidTa
+
     seosan-region-id: "11C20101"
 
