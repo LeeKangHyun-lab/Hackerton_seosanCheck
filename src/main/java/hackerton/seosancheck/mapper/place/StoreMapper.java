@@ -46,7 +46,7 @@ public interface StoreMapper {
                    sin(radians(#{lat})) * sin(radians(latitude))
                )) AS distance
         FROM store
-        WHERE (tag ILIKE '%식%' OR tag ILIKE '%집%' OR kind_store ILIKE '%해산물%')
+        WHERE (tag ILIKE '%식%' OR tag ILIKE '%집%' OR tag ILIKE '%해산물%')
     ) sub
     WHERE sub.distance < #{radiusKm}
     ORDER BY sub.distance ASC
